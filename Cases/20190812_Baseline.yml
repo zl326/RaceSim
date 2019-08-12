@@ -1,0 +1,5 @@
+meta:
+  name: 20190812_Baseline
+  outputFolder: E:\Users\tom_m\Tommy Li\GitHub\RaceSim\Cases\20190812
+route:
+  routeFile: E:\Users\tom_m\Tommy Li\GitHub\RaceSim\Model\Route\routeInterpolated.csv
