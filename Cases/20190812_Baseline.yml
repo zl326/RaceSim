@@ -1,5 +1,98 @@
 meta:
   name: 20190812_Baseline
   outputFolder: E:\Users\tom_m\Tommy Li\GitHub\RaceSim\Cases\20190812
+initialCondition:
+  time: 2019-10-20T08:30:00+09:30
+  distance: 0
+time:
+  timezone:
+    name: Australia/Darwin
+  days:
+    - start: 2019-10-20T08:30:00+09:30
+      end: 2019-10-20T17:00:00+09:30
+    - start: 2019-10-21T08:00:00+09:30
+      end: 2019-10-21T17:00:00+09:30
+    - start: 2019-10-22T08:00:00+09:30
+      end: 2019-10-22T17:00:00+09:30
+    - start: 2019-10-23T08:00:00+09:30
+      end: 2019-10-23T17:00:00+09:30
+    - start: 2019-10-24T08:00:00+09:30
+      end: 2019-10-24T17:00:00+09:30
+    - start: 2019-10-25T08:00:00+09:30
+      end: 2019-10-25T17:00:00+09:30
 route:
-  routeFile: E:\Users\tom_m\Tommy Li\GitHub\RaceSim\Model\Route\routeInterpolated.csv
+  routeFile: C:\Users\tom_m\Tommy Li\Github\RaceSim\Sim\Route\routeInterpolated.csv
+  stints:
+    - start: Darwin
+      end: Tennant Creek
+      arrivalTime: 2019-10-21T14:00:00+09:30
+    - start: Tennant Creek
+      end: Coober Pedy
+      arrivalTime: 2019-10-23T14:00:00+09:30
+    - start: Coober Pedy
+      end: Adelaide
+      arrivalTime: 2019-10-25T11:00:00+09:30
+  controlStop:
+    duration: 40 # minutes
+    locations:
+      - Katherine
+      - Dunmarra
+      - Barrow Creek
+      - Alice Springs
+      - Kulgera
+      - Glendambo
+      - Port Augusta
+  locations:
+    - name: Darwin
+      distance: 0
+    - name: Adelaide River
+      distance: 113.3
+    - name: Pine Creek
+      distance: 227.6
+    - name: Katherine
+      distance: 317.8
+    - name: Mataranka
+      distance: 422.1
+    - name: Larrimah
+      distance: 497.3
+    - name: Daly Waters
+      distance: 584.5
+    - name: Dunmarra
+      distance: 634.7
+    - name: Newcastle Waters
+      distance: 711.9
+    - name: Elliot
+      distance: 736.9
+    - name: Renner Springs
+      distance: 828.2
+    - name: Tennant Creek
+      distance: 987.6
+    - name: Wauchope
+      distance: 1103.9
+    - name: Barrow Creek
+      distance: 1213.2
+    - name: Ti Tree
+      distance: 1302.4
+    - name: Aileron
+      distance: 1388.7
+    - name: Alice Springs
+      distance: 1498.0
+    - name: Erldunda
+      distance: 1695.5
+    - name: Kulgera
+      distance: 1771.7
+    - name: Marla
+      distance: 1950.2
+    - name: Cadney
+      distance: 2030.4
+    - name: Coober Pedy
+      distance: 2183.8
+    - name: Glendambo
+      distance: 2436.4
+    - name: Pimba
+      distance: 2549.7
+    - name: Port Augusta
+      distance: 2726.2
+    - name: Adelaide
+      distance: 3029
+      
