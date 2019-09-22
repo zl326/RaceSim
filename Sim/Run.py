@@ -11,6 +11,11 @@ simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20190812
 sim = Simulation(simulationSettingsPath)
 aeroModel = AeroModel.AeroModel(2)
 
-print(sim.settingsPath)
-print(sim.data)
-print(aeroModel.settings)
+
+sim.combineStints()
+
+#print(sim.settingsPath)
+#print(sim.data)
+#print(aeroModel.settings)
+
+sim.writeOutput()

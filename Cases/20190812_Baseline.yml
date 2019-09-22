@@ -1,6 +1,5 @@
 meta:
   name: 20190812_Baseline
-  outputFolder: E:\Users\tom_m\Tommy Li\GitHub\RaceSim\Cases\20190812
 initialCondition:
   time: 2019-10-20T08:30:00+09:30
   distance: 0
@@ -20,19 +19,22 @@ time:
       end: 2019-10-24T17:00:00+09:30
     - start: 2019-10-25T08:00:00+09:30
       end: 2019-10-25T17:00:00+09:30
+  driverChange:
+    drivingPeriodMax: 120 # minutes
+    driverChangeDuration: 5 # minutes
 route:
   routeFile: C:\Users\tom_m\Tommy Li\Github\RaceSim\Sim\Route\routeInterpolated.csv
   stints:
-    - start: Darwin
-      end: Tennant Creek
+    - startLocation: Darwin
+      endLocation: Tennant Creek
       arrivalTime: 2019-10-21T14:00:00+09:30
-    - start: Tennant Creek
-      end: Coober Pedy
+    - startLocation: Tennant Creek
+      endLocation: Coober Pedy
       arrivalTime: 2019-10-23T14:00:00+09:30
-    - start: Coober Pedy
-      end: Adelaide
+    - startLocation: Coober Pedy
+      endLocation: Adelaide
       arrivalTime: 2019-10-25T11:00:00+09:30
-  controlStop:
+  controlStops:
     duration: 40 # minutes
     locations:
       - Katherine
@@ -94,5 +96,5 @@ route:
     - name: Port Augusta
       distance: 2726.2
     - name: Adelaide
-      distance: 3029
+      distance: 3029.7
       
