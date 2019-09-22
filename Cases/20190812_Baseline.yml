@@ -1,49 +1,58 @@
 meta:
   name: 20190812_Baseline
-initialCondition:
-  time: 2019-10-20T08:30:00+09:30
+initialConditions:
+  time: 2019-10-20T08:30:00+00:00
   distance: 0
+aero:
+  CdA: 0.2
 time:
   timezone:
     name: Australia/Darwin
   days:
-    - start: 2019-10-20T08:30:00+09:30
-      end: 2019-10-20T17:00:00+09:30
-    - start: 2019-10-21T08:00:00+09:30
-      end: 2019-10-21T17:00:00+09:30
-    - start: 2019-10-22T08:00:00+09:30
-      end: 2019-10-22T17:00:00+09:30
-    - start: 2019-10-23T08:00:00+09:30
-      end: 2019-10-23T17:00:00+09:30
-    - start: 2019-10-24T08:00:00+09:30
-      end: 2019-10-24T17:00:00+09:30
-    - start: 2019-10-25T08:00:00+09:30
-      end: 2019-10-25T17:00:00+09:30
+    - start: 2019-10-20T08:30:00+00:00
+      end: 2019-10-20T17:00:00+00:00
+    - start: 2019-10-21T08:00:00+00:00
+      end: 2019-10-21T17:00:00+00:00
+    - start: 2019-10-22T08:00:00+00:00
+      end: 2019-10-22T17:00:00+00:00
+    - start: 2019-10-23T08:00:00+00:00
+      end: 2019-10-23T17:00:00+00:00
+    - start: 2019-10-24T08:00:00+00:00
+      end: 2019-10-24T17:00:00+00:00
+    - start: 2019-10-25T08:00:00+00:00
+      end: 2019-10-25T17:00:00+00:00
   driverChange:
     drivingPeriodMax: 120 # minutes
     driverChangeDuration: 5 # minutes
+  controlStops:
+    duration: 40 # minutes
 route:
   routeFile: C:\Users\tom_m\Tommy Li\Github\RaceSim\Sim\Route\routeInterpolated.csv
   stints:
     - startLocation: Darwin
       endLocation: Tennant Creek
-      arrivalTime: 2019-10-21T14:00:00+09:30
+      startDay: 1
+      arrivalTime: 2019-10-21T12:00:00+00:00
+      controlStops:
+        - Katherine
+        - Dunmarra
+      driverChanges:
+        - 150
     - startLocation: Tennant Creek
       endLocation: Coober Pedy
-      arrivalTime: 2019-10-23T14:00:00+09:30
+      startDay: 3
+      arrivalTime: 2019-10-23T14:30:00+00:00
+      controlStops:
+        - Barrow Creek
+        - Alice Springs
+        - Kulgera
     - startLocation: Coober Pedy
       endLocation: Adelaide
-      arrivalTime: 2019-10-25T11:00:00+09:30
-  controlStops:
-    duration: 40 # minutes
-    locations:
-      - Katherine
-      - Dunmarra
-      - Barrow Creek
-      - Alice Springs
-      - Kulgera
-      - Glendambo
-      - Port Augusta
+      startDay: 5   
+      arrivalTime: 2019-10-25T09:30:00+00:00
+      controlStops:
+        - Glendambo
+        - Port Augusta
   locations:
     - name: Darwin
       distance: 0
