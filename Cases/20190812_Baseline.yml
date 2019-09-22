@@ -1,10 +1,22 @@
 meta:
   name: 20190812_Baseline
+simulation:
+  arrivalTimeTolerance: 5 # seconds
+  powerSensitivityTolerance: 0.001 # Power per kph
 initialConditions:
   time: 2019-10-20T08:30:00+00:00
   distance: 0
+car:
+  mass: 850
+  wheelbase: 2.825
+  CoG_x: 2.0 # longitudinal CoG location behind front wheel centreline
+  CoG_z: 0.7 # vertical CoG location above ground
 aero:
   CdA: 0.2
+tyres:
+  Crr: 0.005
+weather:
+  filePath: test
 time:
   timezone:
     name: Australia/Darwin
@@ -53,6 +65,13 @@ route:
       controlStops:
         - Glendambo
         - Port Augusta
+  speedConstraints:
+    - startDistance: 0
+      speedMin: 110
+      speedMax: 999
+    - startDistance: 200
+      speedMin: 0
+      speedMax: 999
   locations:
     - name: Darwin
       distance: 0
@@ -106,4 +125,21 @@ route:
       distance: 2726.2
     - name: Adelaide
       distance: 3029.7
-      
+compass:
+  cadrinal2deg:
+    N:   0
+    NNE: 22.5
+    NE:  45
+    ENE: 67.5
+    E:   90
+    ESE: 112.5
+    SE:  135
+    SSE: 157.5
+    S:   180
+    SSW: 202.5
+    SW:  225
+    WSW: 247.5
+    W:   270
+    WNW: 292.5
+    NW:  315
+    NNW: 337.5

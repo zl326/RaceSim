@@ -2,30 +2,38 @@
 #from astral import Location as AstralLocation
 
 from Models.Simulation import Simulation
-from Models.AeroModel import AeroModel
-
 
 
 simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20190812_Baseline.yml'
 
 sim = Simulation(simulationSettingsPath)
-#aeroModel = AeroModel(2)
 
 for iStint in range(0,sim.NStints):
+    bChangesMade = True
+    iteration = 0
     
-    stint = sim.stints[iStint]
-    
-    print('Processing Stint #{}'.format(stint['nStint']))
-    
-    stint = sim.calculateAero(stint)
-    
-    print(stint)
+    while bChangesMade:
+        stint = sim.stints[iStint]
+        iteration += 1
+        
+        # Run the models
+        sim.runModels(stint)
+        
+        # Calculate the sensitivity to speed at each mesh point
+        sim.calculateSensitivities(stint)
+        
+        # Adjust the speed of each mesh point
+        # Increase speed at 'cheap' locations, decrease speed at 'expensive' locations
+        # Increase speed at 'cheap' locations until arrival time constraint is met
+        changesMade = sim.adjustSpeed(stint)
+        bChangesMade = len(changesMade) > 0
+        
+        print('Stint #{} | iter {} | sensDelta: {:.6f} | arrivalDelta: {:4.2f} | change: {}'.format(stint['nStint'], iteration, stint['data'].sens_powerPerKphDeltaToMin_gated.max(), stint['arrivalTimeDelta'], changesMade))
 
 
 sim.combineStints()
 
 #print(sim.settingsPath)
 #print(sim.data)
-#print(aeroModel.settings)
 
 sim.writeOutput()
