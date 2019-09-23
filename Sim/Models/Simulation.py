@@ -206,8 +206,8 @@ class Simulation:
         self.updateCol(stint['data'], 'aero__dragEnergy', 0)
         
         for i in range(1, len(stint['data'])):
-            averagePower = 0.5*stint['data'].aero__dragPower[i] + 0.5*stint['data'].aero__dragPower[i-1]
-            stint['data'].at[i, 'aero__d_dragEnergy'] = averagePower*stint['data'].d_timeDriving[i].seconds
+            averageDragForce = 0.5*stint['data'].aero__dragForce[i] + 0.5*stint['data'].aero__dragForce[i-1]
+            stint['data'].at[i, 'aero__d_dragEnergy'] = averageDragForce*stint['data'].d_distance[i]*1000
             stint['data'].at[i, 'aero__dragEnergy'] = stint['data'].at[i-1, 'aero__dragEnergy'] + stint['data'].at[i, 'aero__d_dragEnergy']
     
     def calculateMech(self, stint):
@@ -225,8 +225,8 @@ class Simulation:
         self.updateCol(stint['data'], 'mech__tyreRollingResistanceEnergy', 0)
         
         for i in range(1, len(stint['data'])):
-            averagePower = 0.5*stint['data'].mech__tyreRollingResistancePower[i] + 0.5*stint['data'].mech__tyreRollingResistancePower[i-1]
-            stint['data'].at[i, 'mech__d_tyreRollingResistanceEnergy'] = averagePower*stint['data'].d_timeDriving[i].seconds
+            averageForce = 0.5*stint['data'].mech__tyreRollingResistanceForce[i] + 0.5*stint['data'].mech__tyreRollingResistanceForce[i-1]
+            stint['data'].at[i, 'mech__d_tyreRollingResistanceEnergy'] = averageForce*stint['data'].d_distance[i]*1000
             stint['data'].at[i, 'mech__tyreRollingResistanceEnergy'] = stint['data'].at[i-1, 'mech__tyreRollingResistanceEnergy'] + stint['data'].at[i, 'mech__d_tyreRollingResistanceEnergy']
             
     def calculateEnergy(self, stint):
@@ -294,7 +294,7 @@ class Simulation:
             
         elif (stint['arrivalTimeDelta'] < -self.settings['simulation']['arrivalTimeTolerance']) | (stint['data'].sens_powerPerKphDeltaToMin_gated.max() > self.settings['simulation']['powerSensitivityTolerance']):
             # Decrease speed at expensive locations
-            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(10,-stint['arrivalTimeDelta']), 0.1)
+            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
             
             # Set new speed
 #            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
