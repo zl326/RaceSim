@@ -3,14 +3,15 @@ meta:
 simulation:
   arrivalTimeTolerance: 5 # seconds
   powerSensitivityTolerance: 0.001 # Power per kph
+  iterLimit: 1000
 initialConditions:
   time: 2019-10-20T08:30:00+00:00
   distance: 0
 car:
   mass: 850
   wheelbase: 2.825
-  CoG_x: 2.0 # longitudinal CoG location behind front wheel centreline
-  CoG_z: 0.7 # vertical CoG location above ground
+  # CoG_x: 2.0 # longitudinal CoG location behind front wheel centreline
+  # CoG_z: 0.7 # vertical CoG location above ground
 aero:
   CdA: 0.2
 tyres:

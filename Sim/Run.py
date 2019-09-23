@@ -12,11 +12,12 @@ for iStint in range(0,sim.NStints):
     bChangesMade = True
     iteration = 0
     
-    while bChangesMade:
+    while bChangesMade & (iteration < sim.settings['simulation']['iterLimit']):
         stint = sim.stints[iStint]
         iteration += 1
         
         # Run the models
+        sim.calculateTime(stint)
         sim.runModels(stint)
         
         # Calculate the sensitivity to speed at each mesh point
@@ -28,7 +29,7 @@ for iStint in range(0,sim.NStints):
         changesMade = sim.adjustSpeed(stint)
         bChangesMade = len(changesMade) > 0
         
-        print('Stint #{} | iter {} | sensDelta: {:.6f} | arrivalDelta: {:4.2f} | change: {}'.format(stint['nStint'], iteration, stint['data'].sens_powerPerKphDeltaToMin_gated.max(), stint['arrivalTimeDelta'], changesMade))
+        print('Stint #{} | iter {} | sensDelta: {:.6f} | arrivalDelta: {:4.2f} | changeMade: {}'.format(stint['nStint'], iteration, stint['data'].sens_powerPerKphDeltaToMin_gated.max(), stint['arrivalTimeDelta'], changesMade))
 
 
 sim.combineStints()

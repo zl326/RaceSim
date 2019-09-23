@@ -153,13 +153,13 @@ class Simulation:
             self.updateCol(self.stints[iStint]['data'], 'speedms', self.stints[iStint]['averageSpeed']*self.kph2ms)
             
     def runModels(self, stint):
-        self.calculateTime(stint)
         self.calculateAero(stint)
         self.calculateMech(stint)
         self.calculateEnergy(stint)
     
     def calculateTime(self, stint):
         # Calculates the time using the car speed as input
+        self.updateCol(stint['data'], 'speedms', stint['data']['speed']*self.kph2ms)
         
         self.updateCol(stint['data'], 'time', stint['startTime'])
         self.updateCol(stint['data'], 'day', stint['startDay'])
@@ -193,6 +193,8 @@ class Simulation:
             # Backfill i=0
             if i == 1:
                 stint['data'].at[0, 'time_unix'] = stint['data'].at[0, 'time'].timestamp()
+                
+        self.calculateArrivalDelta(stint)
     
     def calculateAero(self, stint):
         CdA = self.settings['aero']['CdA']
@@ -251,16 +253,16 @@ class Simulation:
     def adjustSpeed(self, stint):
         changesMade = ''
         
-        self.updateCol(stint['data'], 'sens_powerPerKphDeltaToMax', stint['data'].sens__powerPerKph - stint['data'].sens__powerPerKph.max())
-        self.updateCol(stint['data'], 'sens_powerPerKphDeltaToMin', stint['data'].sens__powerPerKph - stint['data'].sens__powerPerKph.min())
-        
         # Correct speeds if they violate constraint limit
         self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMin]).max())
         self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMax]).min())
         
         # Determine if speed is at the constraint limit
         self.updateCol(stint['data'], 'onSpeedMin', stint['data'].speed - stint['data'].speedMin <= 0)
-        self.updateCol(stint['data'], 'onSpeedMax', stint['data'].speed - stint['data'].speedMax >= 0)
+        self.updateCol(stint['data'], 'onSpeedMax', stint['data'].speed - stint['data'].speedMax >= 0)        
+        
+        self.updateCol(stint['data'], 'sens_powerPerKphDeltaToMax', stint['data'].sens__powerPerKph - stint['data'].loc[~stint['data'].onSpeedMax, ['sens__powerPerKph']].max().to_list())
+        self.updateCol(stint['data'], 'sens_powerPerKphDeltaToMin', stint['data'].sens__powerPerKph - stint['data'].loc[~stint['data'].onSpeedMin, ['sens__powerPerKph']].min().to_list())
         
         # Gate the power sensitivity to speed by whether it's still possible to change the speed there
         self.updateCol(stint['data'], 'sens_powerPerKphDeltaToMax_gated', stint['data'].sens_powerPerKphDeltaToMax * (~stint['data'].onSpeedMax).astype(int))
@@ -273,16 +275,13 @@ class Simulation:
         else:
             self.updateCol(stint['data'], 'sens_powerPerKph_weightAdd', 1/len(stint['data']))
             self.updateCol(stint['data'], 'sens_powerPerKph_weightSubtract', 1/len(stint['data']))
-            
         
-        stint['arrivalTimeDelta'] = (stint['data'].time.iloc[-1] - stint['arrivalTime']).seconds
-        if stint['data'].time.iloc[-1] < stint['arrivalTime']:
-            stint['arrivalTimeDelta'] = -(stint['arrivalTime'] - stint['data'].time.iloc[-1]).seconds
+        self.calculateArrivalDelta(stint)
         
         # Check if we are too slow to achieve the arrival time
         if stint['arrivalTimeDelta'] > 0 :
             # Increase speed at cheap locations
-            stepSize = max(0.1*stint['arrivalTimeDelta'], 0.5)
+            stepSize = max(0.1*stint['arrivalTimeDelta'], 0.1)
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -295,9 +294,10 @@ class Simulation:
             
         elif (stint['arrivalTimeDelta'] < -self.settings['simulation']['arrivalTimeTolerance']) | (stint['data'].sens_powerPerKphDeltaToMin_gated.max() > self.settings['simulation']['powerSensitivityTolerance']):
             # Decrease speed at expensive locations
-            stepSize = max(min(stint['data'].sens_powerPerKphDeltaToMin_gated.max() * 200, -stint['arrivalTimeDelta']), 0.1)
+            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(10,-stint['arrivalTimeDelta']), 0.1)
             
             # Set new speed
+#            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
             self.updateCol(stint['data'], 'speed', stint['data'].speed - stepSize*stint['data'].sens_powerPerKph_weightSubtract)
             
             # Apply speed constraints
@@ -305,8 +305,13 @@ class Simulation:
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMax]).min())
             
             changesMade = '-Speed'
-            
+        
         return changesMade
+    
+    def calculateArrivalDelta(self, stint):
+        stint['arrivalTimeDelta'] = (stint['data'].time.iloc[-1] - stint['arrivalTime']).seconds
+        if stint['data'].time.iloc[-1] < stint['arrivalTime']:
+            stint['arrivalTimeDelta'] = -(stint['arrivalTime'] - stint['data'].time.iloc[-1]).seconds
         
     def combineStints(self):
         for iStint in range(0, self.NStints):
