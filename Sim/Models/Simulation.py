@@ -117,7 +117,7 @@ class Simulation:
                 # Assign a distance to each location
                 self.weatherData.at[i, 'distance'] = self.locations[self.weatherData.location[i]]['distance']
                 
-        self.weatherDistances = self.unique(self.weatherData.distance.tolist())
+                self.weatherDistances = self.unique(self.weatherData.distance.tolist())
             
     def splitStints(self):
         # Set the stints
@@ -128,83 +128,98 @@ class Simulation:
             stintNumber = iStint+1
             
             startDistance = -1
-            end_distance = -1
+            endDistance = -1
                 
-            startDistance = self.locations[self.stints[iStint]['startLocation']]['distance']
-            end_distance = self.locations[self.stints[iStint]['endLocation']]['distance']
+            startDistance = max(self.settings['initialConditions']['distance'], self.locations[self.stints[iStint]['startLocation']]['distance'])
+            endDistance = self.locations[self.stints[iStint]['endLocation']]['distance']
             
-            # Find the section of the table that contains the current stint
-            inStint = ((self.data.distance > startDistance) & (self.data.distance <= end_distance)).values.tolist()
-            startIndex = inStint.index(True) - 1
-            endIndex = len(inStint) - inStint[::-1].index(True) - 1
-            
-            # Get the data that belongs to this stint
-            self.stints[iStint]['data'] = self.data.iloc[startIndex:endIndex+1, :]
-            
-            # Reset the index
-            self.stints[iStint]['data'] = self.stints[iStint]['data'].reset_index(drop=True)
-            
-            # Add some meta data
+            # Meta data
             self.stints[iStint]['nStint'] = stintNumber
             self.stints[iStint]['startDistance'] = startDistance
-            self.stints[iStint]['end_distance'] = end_distance
-            self.stints[iStint]['stintLength'] = end_distance - startDistance
-            self.stints[iStint]['meshPoints'] = endIndex+1-startIndex
+            self.stints[iStint]['endDistance'] = endDistance
             
-            # Calculate additional route properties
-            self.stints[iStint]['data'].at[0, 'd_distance'] = 0
-            self.stints[iStint]['data'].at[0, 'd_elevation'] = 0
-            self.stints[iStint]['data'].at[0, 'inclination_angle'] = 0
-            self.stints[iStint]['data'].at[0, 'inclination_angle_deg'] = 0
-            for i in range(1, len(self.stints[iStint]['data'])):
-                # Set the distance between mesh locationss
-                self.stints[iStint]['data'].at[i, 'd_distance'] = self.stints[iStint]['data'].loc[i, 'distance'] - self.stints[iStint]['data'].loc[i-1, 'distance']
+            # Find the section of the table that contains the current stint
+            inStint = ((self.data.distance > startDistance) & (self.data.distance <= endDistance)).values.tolist()
+            if True in inStint:
+                startIndex = inStint.index(True) - 1
+                endIndex = len(inStint) - inStint[::-1].index(True) - 1
+            
+                # Get the data that belongs to this stint
+                self.stints[iStint]['data'] = self.data.iloc[startIndex:endIndex+1, :]
+            
+                # Reset the index
+                self.stints[iStint]['data'] = self.stints[iStint]['data'].reset_index(drop=True)
                 
-                # Calculate change in elevation
-                self.stints[iStint]['data'].at[i, 'd_elevation'] = self.stints[iStint]['data'].loc[i, 'elevation'] - self.stints[iStint]['data'].loc[i-1, 'elevation']
-                self.stints[iStint]['data'].at[i, 'inclination_angle'] = math.atan(self.stints[iStint]['data'].at[i, 'd_elevation']/(self.stints[iStint]['data'].at[i, 'd_distance']*1e3))
-                self.stints[iStint]['data'].at[i, 'inclination_angle_deg'] = self.rad2deg*math.atan(self.stints[iStint]['data'].at[i, 'd_elevation']/(self.stints[iStint]['data'].at[i, 'd_distance']*1e3))
-            
-            # Set the stint number (starting from 1)
-            self.stints[iStint]['data'].insert(len(self.stints[iStint]['data'].columns), 'stintNumber', stintNumber)
-            
-            # Define the stint start time
-            if self.settings['initialConditions']['time'] > self.settings['time']['days'][self.stints[iStint]['startDay']-1]['start']:
-                self.stints[iStint]['startTime'] = self.settings['initialConditions']['time']
-            else:
-                self.stints[iStint]['startTime'] = self.settings['time']['days'][self.stints[iStint]['startDay']-1]['start']
-            
-            # Find the end day
-            for iDay in range(0, len(self.settings['time']['days'])):
-                if (self.stints[iStint]['arrivalTime'] > self.settings['time']['days'][iDay]['start']) & (self.stints[iStint]['arrivalTime'] <= self.settings['time']['days'][iDay]['end']) :
-                    self.stints[iStint]['endDay'] = iDay+1
-            
-            # Control stops
-            self.stints[iStint]['NControlStops'] = len(self.stints[iStint]['controlStops'])
-            
-            # Calculate the time available
-            # Time available = Total allowable time on road - time for control stops
-            self.stints[iStint]['availableTime'] = datetime.timedelta(0) # Initialise time available
-            for iDay in range(self.stints[iStint]['startDay']-1, self.stints[iStint]['endDay']):
-                if iDay == self.stints[iStint]['startDay']-1:
-                    # First day of stint
-                    self.stints[iStint]['availableTime'] += self.settings['time']['days'][iDay]['end'] - self.stints[iStint]['startTime']
+                # Add some meta data
+                self.stints[iStint]['stintLength'] = endDistance - startDistance
+                self.stints[iStint]['meshPoints'] = endIndex+1-startIndex
+                
+                # Calculate additional route properties
+                self.stints[iStint]['data'].at[0, 'd_distance'] = 0
+                self.stints[iStint]['data'].at[0, 'd_elevation'] = 0
+                self.stints[iStint]['data'].at[0, 'inclination_angle'] = 0
+                self.stints[iStint]['data'].at[0, 'inclination_angle_deg'] = 0
+                for i in range(1, len(self.stints[iStint]['data'])):
+                    # Set the distance between mesh locationss
+                    self.stints[iStint]['data'].at[i, 'd_distance'] = self.stints[iStint]['data'].loc[i, 'distance'] - self.stints[iStint]['data'].loc[i-1, 'distance']
                     
-                elif iDay == self.stints[iStint]['endDay']-1:
-                    # Last day of stint
-                    self.stints[iStint]['availableTime'] += self.stints[iStint]['arrivalTime'] - self.settings['time']['days'][iDay]['start']
-                    
+                    # Calculate change in elevation
+                    self.stints[iStint]['data'].at[i, 'd_elevation'] = self.stints[iStint]['data'].loc[i, 'elevation'] - self.stints[iStint]['data'].loc[i-1, 'elevation']
+                    self.stints[iStint]['data'].at[i, 'inclination_angle'] = math.atan(self.stints[iStint]['data'].at[i, 'd_elevation']/(self.stints[iStint]['data'].at[i, 'd_distance']*1e3))
+                    self.stints[iStint]['data'].at[i, 'inclination_angle_deg'] = self.rad2deg*math.atan(self.stints[iStint]['data'].at[i, 'd_elevation']/(self.stints[iStint]['data'].at[i, 'd_distance']*1e3))
+                
+                # Set the stint number (starting from 1)
+                self.stints[iStint]['data'].insert(len(self.stints[iStint]['data'].columns), 'stintNumber', stintNumber)
+                
+                # Define the stint start time
+                if self.settings['initialConditions']['time'] > self.settings['time']['days'][self.stints[iStint]['startDayDefault']-1]['start']:
+                    self.stints[iStint]['startTime'] = self.settings['initialConditions']['time']
                 else:
-                    # Day between start and end days (not applicable for 2019)
-                    self.stints[iStint]['availableTime'] += self.settings['time']['days'][iDay]['end'] - self.settings['time']['days'][iDay]['start']
-            
-            self.stints[iStint]['availableTime'] -= self.stints[iStint]['NControlStops']*datetime.timedelta(minutes=self.settings['time']['controlStops']['duration'])
-            
-            
-            # Initialise the speed
-            self.stints[iStint]['averageSpeed'] = self.stints[iStint]['stintLength'] / (self.stints[iStint]['availableTime'].seconds/3600)
-            self.updateCol(self.stints[iStint]['data'], 'speed', self.stints[iStint]['averageSpeed'])
-            self.updateCol(self.stints[iStint]['data'], 'speedms', self.stints[iStint]['averageSpeed']*self.kph2ms)
+                    self.stints[iStint]['startTime'] = self.settings['time']['days'][self.stints[iStint]['startDayDefault']-1]['start']
+                
+                self.stints[iStint]['startDay'] = self.stints[iStint]['startDayDefault']
+                for iDay in range(0, len(self.settings['time']['days'])):
+                    # Find the start day
+                    if (self.stints[iStint]['startTime'] >= self.settings['time']['days'][iDay]['start']) & (self.stints[iStint]['startTime'] < self.settings['time']['days'][iDay]['end']) :
+                        self.stints[iStint]['startDay'] = iDay+1
+                    
+                    # Find the end day
+                    if (self.stints[iStint]['arrivalTime'] > self.settings['time']['days'][iDay]['start']) & (self.stints[iStint]['arrivalTime'] <= self.settings['time']['days'][iDay]['end']) :
+                        self.stints[iStint]['endDay'] = iDay+1
+                
+                # Control stops
+                self.stints[iStint]['NControlStops'] = len(self.stints[iStint]['controlStops'])
+                
+                # Calculate the time available
+                # Time available = Total allowable time on road - time for control stops
+                self.stints[iStint]['availableTime'] = datetime.timedelta(0) # Initialise time available
+                for iDay in range(self.stints[iStint]['startDay']-1, self.stints[iStint]['endDay']):
+                    if iDay == self.stints[iStint]['startDay']-1:
+                        # First day of stint
+                        if self.settings['time']['days'][iDay]['end'] > self.stints[iStint]['startTime']:
+                            self.stints[iStint]['availableTime'] += self.settings['time']['days'][iDay]['end'] - self.stints[iStint]['startTime']
+                        
+                    elif iDay == self.stints[iStint]['endDay']-1:
+                        # Last day of stint
+                        if self.settings['time']['days'][iDay]['start'] > self.stints[iStint]['startTime']:
+                            self.stints[iStint]['availableTime'] += self.stints[iStint]['arrivalTime'] - self.settings['time']['days'][iDay]['start']
+                        else:
+                            self.stints[iStint]['availableTime'] += self.stints[iStint]['arrivalTime'] - self.stints[iStint]['startTime']
+                        
+                    else:
+                        # Day between start and end days (not applicable for 2019)
+                        if self.settings['time']['days'][iDay]['start'] > self.stints[iStint]['startTime']:
+                            self.stints[iStint]['availableTime'] += self.settings['time']['days'][iDay]['end'] - self.settings['time']['days'][iDay]['start']
+                        else:
+                            self.stints[iStint]['availableTime'] += self.settings['time']['days'][iDay]['end'] - self.stints[iStint]['startTime']
+                
+                self.stints[iStint]['availableTime'] -= self.stints[iStint]['NControlStops']*datetime.timedelta(minutes=self.settings['time']['controlStops']['duration'])
+                
+                
+                # Initialise the speed
+                self.stints[iStint]['averageSpeed'] = self.stints[iStint]['stintLength'] / (self.stints[iStint]['availableTime'].seconds/3600)
+                self.updateCol(self.stints[iStint]['data'], 'speed', self.stints[iStint]['averageSpeed'])
+                self.updateCol(self.stints[iStint]['data'], 'speedms', self.stints[iStint]['averageSpeed']*self.kph2ms)
             
     def runModels(self, stint):
         self.getWeather(stint)
@@ -254,41 +269,54 @@ class Simulation:
     
     def getWeather(self, stint):
         
-        # Normalise the distance and time so that the interpolation algorithm is well conditioned
-        d = self.weatherData.distance.to_numpy()
-        d_min = min(d)
-        d_max = max(d)
-        d_range = d_max - d_min
-        d_norm = (d - d_min)/d_range
-        
-        t = self.weatherData.datetime.astype(np.int64).to_numpy()
-        t_min = min(t)
-        t_max = max(t)
-        t_range = t_max - t_min
-        t_norm = (t - t_min)/t_range
-        
-        d_query_norm = (stint['data'].distance.to_numpy() - d_min)/d_range
-        t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() - t_min)/t_range
-        
-        # Interpolate the data for each quantity of interest
-        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airTemp.to_numpy(), d_query_norm, t_query_norm, 'weather__airTemp')
-        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airPressure.to_numpy(), d_query_norm, t_query_norm, 'weather__airPressure')
-        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.humidity.to_numpy(), d_query_norm, t_query_norm, 'weather__humidity')
-        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windSpeed.to_numpy(), d_query_norm, t_query_norm, 'weather__windSpeed')
-        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompN.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompN')
-        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompE.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompE')
-        
-        # Change limits of direction to 0-360
-        windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompE'].to_numpy(), stint['data']['weather__windCompN'].to_numpy())
-        windDirectionClean = windDirection + (windDirection<0)*360
-        windHeading = windDirection + 180
-        self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
-        self.updateCol(stint['data'], 'weather__windHeading', windHeading )
-        
-        ### CALCULATE OTHER PARAMETERS ###
-        # Calculate air density
-        self.updateCol(stint['data'], 'weather__airDensity', stint['data']['weather__airPressure'].to_numpy() / (self.R * (self.C2K + stint['data']['weather__airTemp'].to_numpy())) )
-        
+        if self.settings['weather']['fromCsv']:
+            # Normalise the distance and time so that the interpolation algorithm is well conditioned
+            d = self.weatherData.distance.to_numpy()
+            d_min = min(d)
+            d_max = max(d)
+            d_range = d_max - d_min
+            d_norm = (d - d_min)/d_range
+            
+            t = self.weatherData.datetime.astype(np.int64).to_numpy()
+            t_min = min(t)
+            t_max = max(t)
+            t_range = t_max - t_min
+            t_norm = (t - t_min)/t_range
+            
+            d_query_norm = (stint['data'].distance.to_numpy() - d_min)/d_range
+            t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() - t_min)/t_range
+            
+            # Interpolate the data for each quantity of interest
+            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airTemp.to_numpy(), d_query_norm, t_query_norm, 'weather__airTemp')
+            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airPressure.to_numpy(), d_query_norm, t_query_norm, 'weather__airPressure')
+            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.humidity.to_numpy(), d_query_norm, t_query_norm, 'weather__humidity')
+            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windSpeed.to_numpy(), d_query_norm, t_query_norm, 'weather__windSpeed')
+            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompN.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompN')
+            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompE.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompE')
+            
+            # Change limits of direction to 0-360
+            windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompE'].to_numpy(), stint['data']['weather__windCompN'].to_numpy())
+            windDirectionClean = windDirection + (windDirection<0)*360
+            windHeading = windDirection + 180
+            self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
+            self.updateCol(stint['data'], 'weather__windHeading', windHeading )
+            
+            ### CALCULATE OTHER PARAMETERS ###
+            # Calculate air density
+            self.updateCol(stint['data'], 'weather__airDensity', stint['data']['weather__airPressure'].to_numpy() / (self.R * (self.C2K + stint['data']['weather__airTemp'].to_numpy())) )
+        else:
+            # If not using csv data, put in default values
+            self.updateCol(stint['data'], 'weather__airTemp', 30)
+            self.updateCol(stint['data'], 'weather__airPressure', 101250)
+            self.updateCol(stint['data'], 'weather__humidity', 0)
+            self.updateCol(stint['data'], 'weather__windSpeed', 0)
+            self.updateCol(stint['data'], 'weather__windCompN', 0)
+            self.updateCol(stint['data'], 'weather__windCompE', 0)
+            self.updateCol(stint['data'], 'weather__windDirection', 0)
+            self.updateCol(stint['data'], 'weather__windHeading', 180)
+            self.updateCol(stint['data'], 'weather__airDensity', 1.225)
+            
+            
         
     def getWeather_interpolate(self, df, d, t, values, d_query, t_query, paramName):
         
@@ -420,8 +448,8 @@ class Simulation:
             weightAdd = stint['data'].sens_powerPerKphDeltaToMax_gated / stint['data'].sens_powerPerKphDeltaToMax_gated.sum()
             weightSubtract =  stint['data'].sens_powerPerKphDeltaToMin_gated / stint['data'].sens_powerPerKphDeltaToMin_gated.sum()
         else:
-            weightAdd = 1/len(stint['data'])
-            weightSubtract = 1/len(stint['data'])
+            weightAdd = 1/len(stint['data']) + stint['data'].sens_powerPerKphDeltaToMax_gated*0
+            weightSubtract = 1/len(stint['data']) + stint['data'].sens_powerPerKphDeltaToMax_gated*0
         
         # Adjust the weightings so that only the most weighted points get adjusted
         convAggro = self.settings['simulation']['convergenceAggressiveness']
@@ -443,6 +471,7 @@ class Simulation:
         if stint['arrivalTimeDelta'] > 0 :
             # Increase speed at cheap locations
 #            stepSize = max(0.1*stint['arrivalTimeDelta'], 0.1)
+            stepSize = max(stepSize, 0.11)
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -476,11 +505,16 @@ class Simulation:
             stint['arrivalTimeDelta'] = -(stint['arrivalTime'] - stint['data'].time.iloc[-1]).seconds
         
     def combineStints(self):
+        initialised = False
         for iStint in range(0, self.NStints):
-            if iStint == 0:
-                self.data = self.stints[iStint]['data']
-            else:
-                self.data = self.data.append(self.stints[iStint]['data'], ignore_index=True)
+            stint = self.stints[iStint]
+            
+            if 'data' in stint:
+                if not initialised:
+                    self.data = stint['data']
+                    initialised = True
+                else:
+                    self.data = self.data.append(stint['data'], ignore_index=True)
                 
     def writeOutput(self):
 

@@ -48,7 +48,7 @@ route:
   stints:
     - startLocation: Darwin
       endLocation: Tennant Creek
-      startDay: 1
+      startDayDefault: 1
       arrivalTime: 2019-10-14T12:00:00+00:00
       controlStops:
         - Katherine
@@ -57,7 +57,7 @@ route:
         - 150
     - startLocation: Tennant Creek
       endLocation: Coober Pedy
-      startDay: 3
+      startDayDefault: 3
       arrivalTime: 2019-10-16T14:30:00+00:00
       controlStops:
         - Barrow Creek
@@ -65,7 +65,7 @@ route:
         - Kulgera
     - startLocation: Coober Pedy
       endLocation: Adelaide
-      startDay: 5   
+      startDayDefault: 5   
       arrivalTime: 2019-10-18T09:30:00+00:00
       controlStops:
         - Glendambo
