@@ -20,7 +20,7 @@ tyres:
   Crr: 0.005
   rollingRadius: 0.3
 weather:
-  fromCsv: true
+  fromCsv: false
   filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
 time:
   timezone:
@@ -72,7 +72,7 @@ route:
         - Port Augusta
   speedConstraints:
     - startDistance: 0
-      speedMin: 110
+      speedMin: 0
       speedMax: 999
     - startDistance: 200
       speedMin: 0

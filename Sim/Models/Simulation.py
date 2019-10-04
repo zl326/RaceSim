@@ -18,6 +18,8 @@ class Simulation:
     R = 287.6
     C2K = 273.15
     K2C = -273.15
+    rads2RPM = 60/(2*math.pi)
+    RPM2rads = 2*math.pi/60
     
     def __init__(self, settingsPath):
 
@@ -393,20 +395,24 @@ class Simulation:
         rollingRadius = self.settings['tyres']['rollingRadius']
         NMotors = self.settings['car']['NMotors']
         
-        
         resistiveForcesCombined = stint['data']['aero__dragForce'].to_numpy() + stint['data']['mech__totalResistiveForce'].to_numpy()
         
-        motorTorque = resistiveForcesCombined / NMotors * rollingRadius
+        motorTorque = rollingRadius * resistiveForcesCombined / NMotors
+        motorSpeed = stint['data']['speed'].to_numpy() * self.kph2ms / rollingRadius
         
         self.updateCol(stint['data'], 'elec__motorTorque', motorTorque)
+        self.updateCol(stint['data'], 'elec__motorSpeed', motorSpeed)
+        self.updateCol(stint['data'], 'elec__motorSpeedRPM', motorSpeed*self.rads2RPM)
         
-        
+        self.updateCol(stint['data'], 'elec__totalLossesPower', 0)
+        self.updateCol(stint['data'], 'elec__d_totalLossesEnergy', 0)
+        self.updateCol(stint['data'], 'elec__totalLossesEnergy', 0)
         
     def calculateEnergy(self, stint):
         
-        self.updateCol(stint['data'], 'car__powerUsed', stint['data'].aero__dragPower + stint['data'].mech__totalResistivePower)
-        self.updateCol(stint['data'], 'car__d_energyUsed', stint['data'].aero__d_dragEnergy + stint['data'].mech__d_totalResistiveEnergy)
-        self.updateCol(stint['data'], 'car__energyUsed', stint['data'].aero__dragEnergy + stint['data'].mech__totalResistiveEnergy)
+        self.updateCol(stint['data'], 'car__powerUsed', stint['data'].aero__dragPower + stint['data'].mech__totalResistivePower + stint['data'].elec__totalLossesPower)
+        self.updateCol(stint['data'], 'car__d_energyUsed', stint['data'].aero__d_dragEnergy + stint['data'].mech__d_totalResistiveEnergy + stint['data'].elec__d_totalLossesEnergy)
+        self.updateCol(stint['data'], 'car__energyUsed', stint['data'].aero__dragEnergy + stint['data'].mech__totalResistiveEnergy + stint['data'].elec__totalLossesEnergy)
     
     def calculateSensitivities(self, stint):
         
@@ -464,14 +470,12 @@ class Simulation:
         
         self.calculateArrivalDelta(stint)
         
-        stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
-        print('stepSize: {}'.format(stepSize))
+        stepSize = np.nan
         
         # Check if we are too slow to achieve the arrival time
         if stint['arrivalTimeDelta'] > 0 :
             # Increase speed at cheap locations
-#            stepSize = max(0.1*stint['arrivalTimeDelta'], 0.1)
-            stepSize = max(stepSize, 0.11)
+            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(1, 0.01*stint['arrivalTimeDelta']), 0.11)
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -484,7 +488,7 @@ class Simulation:
             
         elif (stint['arrivalTimeDelta'] < -self.settings['simulation']['arrivalTimeTolerance']) | (stint['data'].sens_powerPerKphDeltaToMin_gated.max() > self.settings['simulation']['powerSensitivityTolerance']):
             # Decrease speed at expensive locations
-#            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
+            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
             
             # Set new speed
 #            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -497,6 +501,7 @@ class Simulation:
             
             changesMade = '-Speed'
         
+        print('stepSize: {}'.format(stepSize))
         return changesMade
     
     def calculateArrivalDelta(self, stint):
