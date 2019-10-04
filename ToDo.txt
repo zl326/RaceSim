@@ -1,0 +1,15 @@
+### Dummy data to replace ###
+
+Weather
+CdA & aero model (XWind effect)
+Crr
+Rolling radius
+Car mass
+Control stop duration
+
+### To add ###
+
+Electrical model
+Driver change stoppages
+
+

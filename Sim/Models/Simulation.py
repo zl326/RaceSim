@@ -207,6 +207,7 @@ class Simulation:
         self.getWeather(stint)
         self.calculateAero(stint)
         self.calculateMech(stint)
+        self.calculateElec(stint)
         self.calculateEnergy(stint)
     
     def calculateTime(self, stint):
@@ -311,6 +312,8 @@ class Simulation:
             stint['data'].at[i, 'aero__dragEnergy'] = stint['data'].at[i-1, 'aero__dragEnergy'] + stint['data'].at[i, 'aero__d_dragEnergy']
     
     def calculateMech(self, stint):
+        
+        ### TYRES ###
         Crr = self.settings['tyres']['Crr']
         
         carMass = self.settings['car']['mass']
@@ -324,16 +327,52 @@ class Simulation:
         self.updateCol(stint['data'], 'mech__d_tyreRollingResistanceEnergy', 0)
         self.updateCol(stint['data'], 'mech__tyreRollingResistanceEnergy', 0)
         
+        ### GENERAL ###
+        self.updateCol(stint['data'], 'mech__chassisRollingResistanceForce', 0)
+        self.updateCol(stint['data'], 'mech__chassisRollingResistancePower', stint['data'].mech__chassisRollingResistanceForce*stint['data'].speedms)
+        self.updateCol(stint['data'], 'mech__d_chassisRollingResistanceEnergy', 0)
+        self.updateCol(stint['data'], 'mech__chassisRollingResistanceEnergy', 0)
+        
+        ### TOTAL ###
+        self.updateCol(stint['data'], 'mech__totalResistiveForce', Crr*stint['data'].car__ForceNormal)
+        self.updateCol(stint['data'], 'mech__totalResistivePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speedms)
+        self.updateCol(stint['data'], 'mech__d_totalResistiveEnergy', 0)
+        self.updateCol(stint['data'], 'mech__totalResistiveEnergy', 0)
+        
+        ### LOOP ###
         for i in range(1, len(stint['data'])):
-            averageForce = 0.5*stint['data'].mech__tyreRollingResistanceForce[i] + 0.5*stint['data'].mech__tyreRollingResistanceForce[i-1]
-            stint['data'].at[i, 'mech__d_tyreRollingResistanceEnergy'] = averageForce*stint['data'].d_distance[i]*1000
+            mech__tyreRollingResistanceForce_avg = 0.5*stint['data'].mech__tyreRollingResistanceForce[i] + 0.5*stint['data'].mech__tyreRollingResistanceForce[i-1]
+            stint['data'].at[i, 'mech__d_tyreRollingResistanceEnergy'] = mech__tyreRollingResistanceForce_avg*stint['data'].d_distance[i]*1000
             stint['data'].at[i, 'mech__tyreRollingResistanceEnergy'] = stint['data'].at[i-1, 'mech__tyreRollingResistanceEnergy'] + stint['data'].at[i, 'mech__d_tyreRollingResistanceEnergy']
             
+            mech__chassisRollingResistanceForce_avg = 0.5*stint['data'].mech__chassisRollingResistanceForce[i] + 0.5*stint['data'].mech__chassisRollingResistanceForce[i-1]
+            stint['data'].at[i, 'mech__d_chassisRollingResistanceEnergy'] = mech__chassisRollingResistanceForce_avg*stint['data'].d_distance[i]*1000
+            stint['data'].at[i, 'mech__chassisRollingResistanceEnergy'] = stint['data'].at[i-1, 'mech__chassisRollingResistanceEnergy'] + stint['data'].at[i, 'mech__d_chassisRollingResistanceEnergy']
+            
+            mech__totalResistiveForce_avg = 0.5*stint['data'].mech__totalResistiveForce[i] + 0.5*stint['data'].mech__totalResistiveForce[i-1]
+            stint['data'].at[i, 'mech__d_totalResistiveEnergy'] = mech__totalResistiveForce_avg*stint['data'].d_distance[i]*1000
+            stint['data'].at[i, 'mech__totalResistiveEnergy'] = stint['data'].at[i-1, 'mech__totalResistiveEnergy'] + stint['data'].at[i, 'mech__d_totalResistiveEnergy']
+        
+    def calculateElec(self, stint):
+        
+        # Fetch parameters
+        rollingRadius = self.settings['tyres']['rollingRadius']
+        NMotors = self.settings['car']['NMotors']
+        
+        
+        resistiveForcesCombined = stint['data']['aero__dragForce'].to_numpy() + stint['data']['mech__totalResistiveForce'].to_numpy()
+        
+        motorTorque = resistiveForcesCombined / NMotors * rollingRadius
+        
+        self.updateCol(stint['data'], 'elec__motorTorque', motorTorque)
+        
+        
+        
     def calculateEnergy(self, stint):
         
-        self.updateCol(stint['data'], 'car__powerUsed', stint['data'].aero__dragPower + stint['data'].mech__tyreRollingResistancePower)
-        self.updateCol(stint['data'], 'car__d_energyUsed', stint['data'].aero__d_dragEnergy + stint['data'].mech__d_tyreRollingResistanceEnergy)
-        self.updateCol(stint['data'], 'car__energyUsed', stint['data'].aero__dragEnergy + stint['data'].mech__tyreRollingResistanceEnergy)
+        self.updateCol(stint['data'], 'car__powerUsed', stint['data'].aero__dragPower + stint['data'].mech__totalResistivePower)
+        self.updateCol(stint['data'], 'car__d_energyUsed', stint['data'].aero__d_dragEnergy + stint['data'].mech__d_totalResistiveEnergy)
+        self.updateCol(stint['data'], 'car__energyUsed', stint['data'].aero__dragEnergy + stint['data'].mech__totalResistiveEnergy)
     
     def calculateSensitivities(self, stint):
         
