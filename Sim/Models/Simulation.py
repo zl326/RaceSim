@@ -15,6 +15,9 @@ class Simulation:
     rad2deg = 180.0/math.pi
     deg2rad = math.pi/180.0
     g = 9.80665
+    R = 287.6
+    C2K = 273.15
+    K2C = -273.15
     
     def __init__(self, settingsPath):
 
@@ -282,6 +285,10 @@ class Simulation:
         self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
         self.updateCol(stint['data'], 'weather__windHeading', windHeading )
         
+        ### CALCULATE OTHER PARAMETERS ###
+        # Calculate air density
+        self.updateCol(stint['data'], 'weather__airDensity', stint['data']['weather__airPressure'].to_numpy() / (self.R * (self.C2K + stint['data']['weather__airTemp'].to_numpy())) )
+        
         
     def getWeather_interpolate(self, df, d, t, values, d_query, t_query, paramName):
         
@@ -290,7 +297,6 @@ class Simulation:
     
     def calculateAero(self, stint):
         CdA = self.settings['aero']['CdA']
-        rho = 1.225
         
         # Calulate wind effect
         self.updateCol(stint['data'], 'aero__headingDeltaCarWind', stint['data']['weather__windHeading'] - stint['data']['heading'])
@@ -299,7 +305,7 @@ class Simulation:
         self.updateCol(stint['data'], 'aero__airSpeedForward', (stint['data']['speed'].to_numpy() - stint['data']['aero__vTailwind'].to_numpy() ) )
         
         # Calculate forces
-        self.updateCol(stint['data'], 'aero__dragForce', CdA*0.5*rho*(stint['data']['aero__airSpeedForward']*self.kph2ms)**2)
+        self.updateCol(stint['data'], 'aero__dragForce', CdA*0.5*stint['data']['weather__airDensity'].to_numpy()*(stint['data']['aero__airSpeedForward'].to_numpy()*self.kph2ms)**2)
         
         
         self.updateCol(stint['data'], 'aero__dragPower', stint['data'].aero__dragForce*stint['data'].speedms)

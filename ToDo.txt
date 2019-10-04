@@ -6,6 +6,7 @@ Crr
 Rolling radius
 Car mass
 Control stop duration
+R (gas constant)
 
 ### To add ###
 
