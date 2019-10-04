@@ -275,7 +275,7 @@ class Simulation:
         self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompE.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompE')
         
         # Change limits of direction to 0-360
-        windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompN'].to_numpy(), stint['data']['weather__windCompE'].to_numpy())
+        windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompE'].to_numpy(), stint['data']['weather__windCompN'].to_numpy())
         windDirectionClean = windDirection + (windDirection<0)*360
         windHeading = windDirection + 180
         self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
@@ -291,10 +291,16 @@ class Simulation:
         CdA = self.settings['aero']['CdA']
         rho = 1.225
         
-        # Calulate forward air speed
-#        self.updateCol(stint['data'], 'aero__airSpeedForward', stint['data'].speed)
+        # Calulate wind effect
+        self.updateCol(stint['data'], 'aero__headingDeltaCarWind', stint['data']['weather__windHeading'] - stint['data']['heading'])
+        self.updateCol(stint['data'], 'aero__vTailwind', (stint['data']['weather__windSpeed'].to_numpy() * np.cos(stint['data']['aero__headingDeltaCarWind'].to_numpy() * self.deg2rad) ) )
+        self.updateCol(stint['data'], 'aero__vCrossWind', (stint['data']['weather__windSpeed'].to_numpy() * np.sin(stint['data']['aero__headingDeltaCarWind'].to_numpy() * self.deg2rad) ) )
+        self.updateCol(stint['data'], 'aero__airSpeedForward', (stint['data']['speed'].to_numpy() - stint['data']['aero__vTailwind'].to_numpy() ) )
         
-        self.updateCol(stint['data'], 'aero__dragForce', CdA*0.5*rho*(stint['data'].speed*self.kph2ms)**2)
+        # Calculate forces
+        self.updateCol(stint['data'], 'aero__dragForce', CdA*0.5*rho*(stint['data']['aero__airSpeedForward']*self.kph2ms)**2)
+        
+        
         self.updateCol(stint['data'], 'aero__dragPower', stint['data'].aero__dragForce*stint['data'].speedms)
         self.updateCol(stint['data'], 'aero__d_dragEnergy', 0)
         self.updateCol(stint['data'], 'aero__dragEnergy', 0)
@@ -364,11 +370,18 @@ class Simulation:
         
         # Calculate weightings to use for deciding how much speed to add or subtract at each location
         if stint['data'].sens_powerPerKphDeltaToMax_gated.sum() != 0:
-            self.updateCol(stint['data'], 'sens_powerPerKph_weightAdd', stint['data'].sens_powerPerKphDeltaToMax_gated / stint['data'].sens_powerPerKphDeltaToMax_gated.sum())
-            self.updateCol(stint['data'], 'sens_powerPerKph_weightSubtract', stint['data'].sens_powerPerKphDeltaToMin_gated / stint['data'].sens_powerPerKphDeltaToMin_gated.sum())
+            weightAdd = stint['data'].sens_powerPerKphDeltaToMax_gated / stint['data'].sens_powerPerKphDeltaToMax_gated.sum()
+            weightSubtract =  stint['data'].sens_powerPerKphDeltaToMin_gated / stint['data'].sens_powerPerKphDeltaToMin_gated.sum()
         else:
-            self.updateCol(stint['data'], 'sens_powerPerKph_weightAdd', 1/len(stint['data']))
-            self.updateCol(stint['data'], 'sens_powerPerKph_weightSubtract', 1/len(stint['data']))
+            weightAdd = 1/len(stint['data'])
+            weightSubtract = 1/len(stint['data'])
+        
+        # Adjust the weightings so that only the most weighted points get adjusted
+        weightAddProcessed = weightAdd * (weightAdd > weightAdd.mean())
+        weightSubtractProcessed = weightSubtract * (weightSubtract > weightSubtract.mean())
+        
+        self.updateCol(stint['data'], 'sens_powerPerKph_weightAdd', weightAddProcessed)
+        self.updateCol(stint['data'], 'sens_powerPerKph_weightSubtract', weightSubtractProcessed)
         
         self.calculateArrivalDelta(stint)
         
@@ -379,6 +392,8 @@ class Simulation:
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
+            
+            print('+Speed stepSize: {}'.format(stepSize))
             
             # Apply speed constraints
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMin]).max())
@@ -393,6 +408,7 @@ class Simulation:
             # Set new speed
 #            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
             self.updateCol(stint['data'], 'speed', stint['data'].speed - stepSize*stint['data'].sens_powerPerKph_weightSubtract)
+            print('-Speed stepSize: {}'.format(stepSize))
             
             # Apply speed constraints
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMin]).max())

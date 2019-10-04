@@ -1,6 +1,6 @@
 location,time,airTemp,airPressure,humidity,solarIrradiance,windSpeed,windDirection
-Darwin,20/10/19 06:00,24,101533,0.87,,3,SE
-Darwin,20/10/19 09:00,29,101630,0.56,,9,ENE
+Darwin,20/10/19 06:00,24,101533,0.87,,3,NNW
+Darwin,20/10/19 09:00,29,101630,0.56,,9,NNW
 Darwin,20/10/19 12:00,32,101391,0.38,,13,NNW
 Darwin,20/10/19 15:00,31,101147,0.47,,19,NNW
 Darwin,20/10/19 18:00,29,101230,0.57,,12,NW
