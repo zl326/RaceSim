@@ -20,7 +20,7 @@ tyres:
   Crr: 0.005
   rollingRadius: 0.3
 weather:
-  fromCsv: false
+  fromCsv: true
   filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
 time:
   timezone:
