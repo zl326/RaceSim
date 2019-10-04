@@ -1,8 +1,10 @@
 import pandas as pd
 import yaml
 import datetime
+import dateutil
 import math
 import numpy as np
+from scipy.interpolate import griddata
 import os
 import copy
 
@@ -28,6 +30,7 @@ class Simulation:
         
     def initData(self):
         self.getRoute()
+        self.getWeatherData()
         
         self.updateCol(self.data, 'simName', self.settings['meta']['name'])
         
@@ -41,8 +44,33 @@ class Simulation:
         # Set the speed constraints along the route
         self.updateCol(self.data, 'speedMin', 0)
         self.updateCol(self.data, 'speedMax', 999)
+        
         iConstraint = 0
+        
+        # Loop through all mesh points
         for i in range(0, len(self.data)):
+            
+            # Calculate heading using central difference
+            i1 = i
+            i2 = i
+            if i == 0:
+                i1 = i
+                i2 = i+1
+            elif i == (len(self.data)-1):
+                i1 = i-1
+                i2 = i
+            else:
+                 i1 = i-1
+                 i2 = i+1
+            
+            d_long = self.data['longitude'][i2] - self.data['longitude'][i1]
+            d_lat = self.data['latitude'][i2] - self.data['latitude'][i1]
+            heading = math.atan2(d_long, d_lat)*self.rad2deg
+            heading = heading + (heading<0)*360
+            
+            self.data.at[i, 'heading'] = heading
+            
+            # Apply speed constraints
             if iConstraint >= len(self.settings['route']['speedConstraints']):
                 # No more constraints
                 break
@@ -64,6 +92,29 @@ class Simulation:
             thisLocation = locations[iLocation]
             self.locations[thisLocation['name']] = {}
             self.locations[thisLocation['name']]['distance'] = thisLocation['distance']
+            
+    def getWeatherData(self):
+        
+        if self.settings['weather']['fromCsv']:
+            self.weatherData = pd.read_csv(self.settings['weather']['filePath'])
+            
+            for i in range(0, len(self.weatherData)):
+                # Convert wind direction cardinals to degrees
+                if isinstance(self.weatherData.windDirection[0], str):
+                    self.weatherData.at[i, 'windDirectionDeg'] = self.settings['compass']['cardinal2deg'][self.weatherData.windDirection[i]]
+                    
+                    # Convert wind speed into northerly and easterly components
+                    self.weatherData.at[i, 'windCompN'] = math.cos(self.weatherData['windDirectionDeg'][i]*self.deg2rad)
+                    self.weatherData.at[i, 'windCompE'] = math.sin(self.weatherData['windDirectionDeg'][i]*self.deg2rad)
+                
+                
+                # Convert to datetime
+                self.weatherData.at[i, 'datetime'] = dateutil.parser.parse(self.weatherData.time[i])
+                
+                # Assign a distance to each location
+                self.weatherData.at[i, 'distance'] = self.locations[self.weatherData.location[i]]['distance']
+                
+        self.weatherDistances = self.unique(self.weatherData.distance.tolist())
             
     def splitStints(self):
         # Set the stints
@@ -153,6 +204,7 @@ class Simulation:
             self.updateCol(self.stints[iStint]['data'], 'speedms', self.stints[iStint]['averageSpeed']*self.kph2ms)
             
     def runModels(self, stint):
+        self.getWeather(stint)
         self.calculateAero(stint)
         self.calculateMech(stint)
         self.calculateEnergy(stint)
@@ -196,9 +248,51 @@ class Simulation:
                 
         self.calculateArrivalDelta(stint)
     
+    def getWeather(self, stint):
+        
+        # Normalise the distance and time so that the interpolation algorithm is well conditioned
+        d = self.weatherData.distance.to_numpy()
+        d_min = min(d)
+        d_max = max(d)
+        d_range = d_max - d_min
+        d_norm = (d - d_min)/d_range
+        
+        t = self.weatherData.datetime.astype(np.int64).to_numpy()
+        t_min = min(t)
+        t_max = max(t)
+        t_range = t_max - t_min
+        t_norm = (t - t_min)/t_range
+        
+        d_query_norm = (stint['data'].distance.to_numpy() - d_min)/d_range
+        t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() - t_min)/t_range
+        
+        # Interpolate the data for each quantity of interest
+        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airTemp.to_numpy(), d_query_norm, t_query_norm, 'weather__airTemp')
+        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airPressure.to_numpy(), d_query_norm, t_query_norm, 'weather__airPressure')
+        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.humidity.to_numpy(), d_query_norm, t_query_norm, 'weather__humidity')
+        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windSpeed.to_numpy(), d_query_norm, t_query_norm, 'weather__windSpeed')
+        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompN.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompN')
+        self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompE.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompE')
+        
+        # Change limits of direction to 0-360
+        windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompN'].to_numpy(), stint['data']['weather__windCompE'].to_numpy())
+        windDirectionClean = windDirection + (windDirection<0)*360
+        windHeading = windDirection + 180
+        self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
+        self.updateCol(stint['data'], 'weather__windHeading', windHeading )
+        
+        
+    def getWeather_interpolate(self, df, d, t, values, d_query, t_query, paramName):
+        
+        interpolatedValues = griddata((d, t), values, (d_query, t_query), method='linear')
+        self.updateCol(df, paramName, interpolatedValues)
+    
     def calculateAero(self, stint):
         CdA = self.settings['aero']['CdA']
         rho = 1.225
+        
+        # Calulate forward air speed
+#        self.updateCol(stint['data'], 'aero__airSpeedForward', stint['data'].speed)
         
         self.updateCol(stint['data'], 'aero__dragForce', CdA*0.5*rho*(stint['data'].speed*self.kph2ms)**2)
         self.updateCol(stint['data'], 'aero__dragPower', stint['data'].aero__dragForce*stint['data'].speedms)
@@ -333,3 +427,11 @@ class Simulation:
             df.insert(len(df.columns), colName, colValues)
         else:
             df[colName] = colValues
+            
+    def unique(self, list1):
+        unique_list = []
+        list1.sort()
+        for x in list1: 
+            if x not in unique_list: 
+                unique_list.append(x) 
+        return unique_list
