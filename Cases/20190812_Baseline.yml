@@ -4,6 +4,7 @@ simulation:
   arrivalTimeTolerance: 5 # seconds
   powerSensitivityTolerance: 0.001 # Power per kph
   iterLimit: 1000
+  convergenceAggressiveness: 0.8
 initialConditions:
   time: 2019-10-20T08:30:00+00:00
   distance: 0

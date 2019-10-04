@@ -337,18 +337,20 @@ class Simulation:
     
     def calculateSensitivities(self, stint):
         
+        speedPerturbation = 0.1
+        
         # Make a copy of the stint
         stintCopy = copy.deepcopy(stint)
         
         # Perturb the speed
-        stintCopy['data'].speed = stintCopy['data'].speed+1
+        stintCopy['data'].speed = stintCopy['data'].speed + speedPerturbation
         
         # Run the model with the perturned speed
         self.runModels(stintCopy)
         
         # Calculate effect on power
-        self.updateCol(stint['data'], 'sens__powerPerKph', stintCopy['data'].car__powerUsed - stint['data'].car__powerUsed)
-        self.updateCol(stint['data'], 'sens__energyPerKph', stintCopy['data'].car__d_energyUsed - stint['data'].car__d_energyUsed)
+        self.updateCol(stint['data'], 'sens__powerPerKph', (stintCopy['data'].car__powerUsed - stint['data'].car__powerUsed)/speedPerturbation)
+        self.updateCol(stint['data'], 'sens__energyPerKph', (stintCopy['data'].car__d_energyUsed - stint['data'].car__d_energyUsed)/speedPerturbation)
         
     def adjustSpeed(self, stint):
         changesMade = ''
@@ -377,23 +379,28 @@ class Simulation:
             weightSubtract = 1/len(stint['data'])
         
         # Adjust the weightings so that only the most weighted points get adjusted
-        weightAddProcessed = weightAdd * (weightAdd > weightAdd.mean())
-        weightSubtractProcessed = weightSubtract * (weightSubtract > weightSubtract.mean())
+        convAggro = self.settings['simulation']['convergenceAggressiveness']
+        weightAddProcessed = weightAdd * (weightAdd > (weightAdd.max() - (weightAdd.max()-weightAdd.min())*convAggro))
+        weightSubtractProcessed = weightSubtract * (weightSubtract > (weightSubtract.max() - (weightSubtract.max()-weightSubtract.min())*convAggro))
+        
+        print('weightAddProcessed: {} entries'.format((weightAddProcessed>0).sum()))
+        print('weightSubtractProcessed: {} entries'.format((weightSubtractProcessed>0).sum()))
         
         self.updateCol(stint['data'], 'sens_powerPerKph_weightAdd', weightAddProcessed)
         self.updateCol(stint['data'], 'sens_powerPerKph_weightSubtract', weightSubtractProcessed)
         
         self.calculateArrivalDelta(stint)
         
+        stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
+        print('stepSize: {}'.format(stepSize))
+        
         # Check if we are too slow to achieve the arrival time
         if stint['arrivalTimeDelta'] > 0 :
             # Increase speed at cheap locations
-            stepSize = max(0.1*stint['arrivalTimeDelta'], 0.1)
+#            stepSize = max(0.1*stint['arrivalTimeDelta'], 0.1)
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
-            
-            print('+Speed stepSize: {}'.format(stepSize))
             
             # Apply speed constraints
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMin]).max())
@@ -403,12 +410,12 @@ class Simulation:
             
         elif (stint['arrivalTimeDelta'] < -self.settings['simulation']['arrivalTimeTolerance']) | (stint['data'].sens_powerPerKphDeltaToMin_gated.max() > self.settings['simulation']['powerSensitivityTolerance']):
             # Decrease speed at expensive locations
-            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
+#            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
             
             # Set new speed
 #            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
             self.updateCol(stint['data'], 'speed', stint['data'].speed - stepSize*stint['data'].sens_powerPerKph_weightSubtract)
-            print('-Speed stepSize: {}'.format(stepSize))
+            
             
             # Apply speed constraints
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMin]).max())
