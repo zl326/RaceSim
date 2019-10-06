@@ -1,16 +1,52 @@
 ### Dummy data to replace ###
 
 Weather
-CdA & aero model (XWind effect)
 Crr
 Rolling radius
-Car mass
+
+CdA - ~0.175
+Loaded radius - 0.269m
+Car mass - 936kg 4 occupants
 Control stop duration
-R (gas constant)
+
 
 ### To add ###
 
+Aero XWind effect
 Electrical model
 Driver change stoppages
+solar area projected (area ratio relative to plan view, function of [elevation angle] and [azimuth angle])
+solar model
+Battery model
+
+ku2h6e
+57ggu3
+
+900-1100 @ 30 back
+1200 @ 40 main
+1500-1800 @ 50 back
+1800-2000 @ 60 back
+2000-3000 @ 70 main (rubbing at 3k??)
+3500-4500 @ 80 variety (hard to get constant speed run)
+4800-5500 @ 90 main-back
 
 
+
+### Solar Area ###
+
+## Front solar surface
+
+2 x 8  = 16
+5 x 10 = 50
+9 x 12 = 108
+6 x 11 = 66
+7 x 9  = 63
+= 303
+
+
+Cell efficiency 25.1%
+Encapsulation efficiency 94%
+3.89 W/cell    1000W/m2 --> 0.00389 m2/cell???
+
+Cell area 0.0153m2
+Total cell area (flat) = 4.6359m2

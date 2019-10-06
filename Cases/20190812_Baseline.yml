@@ -5,22 +5,33 @@ simulation:
   powerSensitivityTolerance: 0.001 # Power per kph
   iterLimit: 1000
   convergenceAggressiveness: 0.8
+  minStepSizeSpeedAdd: 0.01
+  minStepSizeSpeedSubtract: 0.0075
 initialConditions:
   time: 2019-10-13T08:30:00+00:00
   distance: 0
 car:
-  mass: 850
+  mass: 800
   wheelbase: 2.825
   NMotors: 2
   # CoG_x: 2.0 # longitudinal CoG location behind front wheel centreline
   # CoG_z: 0.7 # vertical CoG location above ground
 aero:
-  CdA: 0.2
+  CdA: 0.175
 tyres:
   Crr: 0.005
-  rollingRadius: 0.3
+  rollingRadius: 0.269
+  loadedRadius: 0.269
+solar:
+  NCells: 303
+  areaPerCell: 0.0153
+  ratioProjectedFlat: 0.972367817
+  efficiencyCell: 0.251
+  efficiencyEncapsulation: 0.94
+  projectedAreaXFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Solar\projectedArea_rotateX.csv
+  projectedAreaYFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Solar\projectedArea_rotateY.csv
 weather:
-  fromCsv: true
+  fromCsv: false
   filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
 time:
   timezone:
@@ -53,6 +64,7 @@ route:
       controlStops:
         - Katherine
         - Dunmarra
+      SOCStart:
       driverChanges:
         - 150
     - startLocation: Tennant Creek
@@ -74,9 +86,30 @@ route:
     - startDistance: 0
       speedMin: 0
       speedMax: 999
-    - startDistance: 200
-      speedMin: 0
-      speedMax: 999
+    # - startDistance: 0
+    #   speedMin: 30
+    #   speedMax: 30
+    # - startDistance: 10
+    #   speedMin: 40
+    #   speedMax: 40
+    # - startDistance: 20
+    #   speedMin: 50
+    #   speedMax: 50
+    # - startDistance: 30
+    #   speedMin: 60
+    #   speedMax: 60
+    # - startDistance: 40
+    #   speedMin: 70
+    #   speedMax: 70
+    # - startDistance: 50
+    #   speedMin: 80
+    #   speedMax: 80
+    # - startDistance: 60
+    #   speedMin: 90
+    #   speedMax: 90
+    # - startDistance: 70
+    #   speedMin: 0
+    #   speedMax: 999
   locations:
     - name: Darwin
       distance: 0

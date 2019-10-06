@@ -1,6 +1,8 @@
 import pandas as pd
 import yaml
 import datetime
+from astral import Astral, Location
+import pytz
 import dateutil
 import math
 import numpy as np
@@ -15,7 +17,8 @@ class Simulation:
     rad2deg = 180.0/math.pi
     deg2rad = math.pi/180.0
     g = 9.80665
-    R = 287.6
+    Ra = 286.9
+    Rw = 461.5
     C2K = 273.15
     K2C = -273.15
     rads2RPM = 60/(2*math.pi)
@@ -36,6 +39,7 @@ class Simulation:
     def initData(self):
         self.getRoute()
         self.getWeatherData()
+        self.getSolarProjectedAreaData()
         
         self.updateCol(self.data, 'simName', self.settings['meta']['name'])
         
@@ -97,7 +101,34 @@ class Simulation:
             thisLocation = locations[iLocation]
             self.locations[thisLocation['name']] = {}
             self.locations[thisLocation['name']]['distance'] = thisLocation['distance']
+    
+    def getSolarProjectedAreaData(self):
+        
+        self.solarprojectedAreaX = pd.read_csv(self.settings['solar']['projectedAreaXFilePath'])
+        self.solarprojectedAreaY = pd.read_csv(self.settings['solar']['projectedAreaYFilePath'])
+        
+        
+        yRotationPattern = self.solarprojectedAreaY.rotation.to_numpy()
+        
+        yRotation = np.array(yRotationPattern)
+        xRotation = np.array([])
+        areaRatio = np.array([])
+        
+        # Compile the full grid
+        for iXRotationValue in range(0, len(self.solarprojectedAreaX.rotation)):
+        
+            xRotationValue = self.solarprojectedAreaX.rotation[iXRotationValue]
             
+            yRotation = np.concatenate((yRotation, yRotationPattern))
+            xRotation = np.concatenate((xRotation, yRotationPattern*0+xRotationValue))
+            
+            areaRatioAtThisXRotation = self.solarprojectedAreaY.areaRatio.to_numpy() * self.solarprojectedAreaX.areaRatio[iXRotationValue]
+            areaRatio = np.concatenate((areaRatio, areaRatioAtThisXRotation))
+            
+        self.solarXRotation = xRotation
+        self.solarYRotation = yRotation
+        self.solarAreaRatio = areaRatio
+    
     def getWeatherData(self):
         
         if self.settings['weather']['fromCsv']:
@@ -221,7 +252,6 @@ class Simulation:
                 # Initialise the speed
                 self.stints[iStint]['averageSpeed'] = self.stints[iStint]['stintLength'] / (self.stints[iStint]['availableTime'].seconds/3600)
                 self.updateCol(self.stints[iStint]['data'], 'speed', self.stints[iStint]['averageSpeed'])
-                self.updateCol(self.stints[iStint]['data'], 'speedms', self.stints[iStint]['averageSpeed']*self.kph2ms)
             
     def runModels(self, stint):
         self.getWeather(stint)
@@ -232,13 +262,15 @@ class Simulation:
     
     def calculateTime(self, stint):
         # Calculates the time using the car speed as input
-        self.updateCol(stint['data'], 'speedms', stint['data']['speed']*self.kph2ms)
         
         self.updateCol(stint['data'], 'time', stint['startTime'])
         self.updateCol(stint['data'], 'day', stint['startDay'])
         self.updateCol(stint['data'], 'time_unix', stint['startTime'].timestamp())
         self.updateCol(stint['data'], 'd_time', 0)
         self.updateCol(stint['data'], 'd_timeDriving', 0)
+        
+        self.updateCol(stint['data'], 'solar__sunElevationAngle', 0)
+        self.updateCol(stint['data'], 'solar__sunAzimuthAngle', 0)
         
         for i in range(1, len(stint['data'])):
             averageSpeed = 0.5*stint['data'].speed[i] + 0.5*stint['data'].speed[i-1]
@@ -266,6 +298,28 @@ class Simulation:
             # Backfill i=0
             if i == 1:
                 stint['data'].at[0, 'time_unix'] = stint['data'].at[0, 'time'].timestamp()
+                
+            
+            ### CALCULATE POSITION OF SUN ###
+            
+            # Create the location object
+            l = Location()
+            l.name = ''
+            l.region = ''
+            l.latitude = stint['data']['latitude'][i]
+            l.longitude = stint['data']['longitude'][i]
+            l.timezone = self.settings['time']['timezone']['name']
+#            l.timezone = 'Europe/London'
+            l.elevation = 0
+            
+#            print('time: {}'.format(stint['data']['time'][i].to_pydatetime()))
+#            print('l: {}'.format(l))
+#            print('solar elevation: {}'.format(l.solar_elevation(stint['data']['time'][i].to_pydatetime())))
+#            print('')
+            
+            stint['data'].at[i, 'solar__sunElevationAngle'] = l.solar_elevation(stint['data']['time'][i].to_pydatetime())
+            stint['data'].at[i, 'solar__sunAzimuthAngle'] = l.solar_azimuth(stint['data']['time'][i].to_pydatetime())
+            
                 
         self.calculateArrivalDelta(stint)
     
@@ -305,7 +359,13 @@ class Simulation:
             
             ### CALCULATE OTHER PARAMETERS ###
             # Calculate air density
-            self.updateCol(stint['data'], 'weather__airDensity', stint['data']['weather__airPressure'].to_numpy() / (self.R * (self.C2K + stint['data']['weather__airTemp'].to_numpy())) )
+#            ρ = 1 / v
+#                = (p / Ra T) (1 + x) / (1 + x Rw / Ra)
+            humidity = stint['data']['weather__humidity'].to_numpy()
+            rho_dryAir = stint['data']['weather__airPressure'].to_numpy() /(self.Ra * (self.C2K + stint['data']['weather__airTemp'].to_numpy()))
+            rho = rho_dryAir * (1+humidity) / (1 + humidity * self.Rw/self.Ra)
+            
+            self.updateCol(stint['data'], 'weather__airDensity', rho)
         else:
             # If not using csv data, put in default values
             self.updateCol(stint['data'], 'weather__airTemp', 30)
@@ -324,6 +384,10 @@ class Simulation:
         
         interpolatedValues = griddata((d, t), values, (d_query, t_query), method='linear')
         self.updateCol(df, paramName, interpolatedValues)
+        
+    def getSolarProjectedArea(self, xRotation, yRotation):
+        
+        griddata((self.solarXRotation, self.solarYRotation), self.solarAreaRatio, (xRotation, yRotation), method='linear')
     
     def calculateAero(self, stint):
         CdA = self.settings['aero']['CdA']
@@ -338,7 +402,7 @@ class Simulation:
         self.updateCol(stint['data'], 'aero__dragForce', CdA*0.5*stint['data']['weather__airDensity'].to_numpy()*(stint['data']['aero__airSpeedForward'].to_numpy()*self.kph2ms)**2)
         
         
-        self.updateCol(stint['data'], 'aero__dragPower', stint['data'].aero__dragForce*stint['data'].speedms)
+        self.updateCol(stint['data'], 'aero__dragPower', stint['data'].aero__dragForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'aero__d_dragEnergy', 0)
         self.updateCol(stint['data'], 'aero__dragEnergy', 0)
         
@@ -359,19 +423,19 @@ class Simulation:
         self.updateCol(stint['data'], 'car__ForceLongitudinal', carWeight*np.sin(stint['data'].inclination_angle.to_numpy()))
         
         self.updateCol(stint['data'], 'mech__tyreRollingResistanceForce', Crr*stint['data'].car__ForceNormal)
-        self.updateCol(stint['data'], 'mech__tyreRollingResistancePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speedms)
+        self.updateCol(stint['data'], 'mech__tyreRollingResistancePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'mech__d_tyreRollingResistanceEnergy', 0)
         self.updateCol(stint['data'], 'mech__tyreRollingResistanceEnergy', 0)
         
         ### GENERAL ###
         self.updateCol(stint['data'], 'mech__chassisRollingResistanceForce', 0)
-        self.updateCol(stint['data'], 'mech__chassisRollingResistancePower', stint['data'].mech__chassisRollingResistanceForce*stint['data'].speedms)
+        self.updateCol(stint['data'], 'mech__chassisRollingResistancePower', stint['data'].mech__chassisRollingResistanceForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'mech__d_chassisRollingResistanceEnergy', 0)
         self.updateCol(stint['data'], 'mech__chassisRollingResistanceEnergy', 0)
         
         ### TOTAL ###
         self.updateCol(stint['data'], 'mech__totalResistiveForce', Crr*stint['data'].car__ForceNormal)
-        self.updateCol(stint['data'], 'mech__totalResistivePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speedms)
+        self.updateCol(stint['data'], 'mech__totalResistivePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'mech__d_totalResistiveEnergy', 0)
         self.updateCol(stint['data'], 'mech__totalResistiveEnergy', 0)
         
@@ -459,8 +523,8 @@ class Simulation:
         
         # Adjust the weightings so that only the most weighted points get adjusted
         convAggro = self.settings['simulation']['convergenceAggressiveness']
-        weightAddProcessed = weightAdd * (weightAdd > (weightAdd.max() - (weightAdd.max()-weightAdd.min())*convAggro))
-        weightSubtractProcessed = weightSubtract * (weightSubtract > (weightSubtract.max() - (weightSubtract.max()-weightSubtract.min())*convAggro))
+        weightAddProcessed = weightAdd * (weightAdd >= (weightAdd.max() - (weightAdd.max()-weightAdd.min())*convAggro))
+        weightSubtractProcessed = weightSubtract * (weightSubtract >= (weightSubtract.max() - (weightSubtract.max()-weightSubtract.min())*convAggro))
         
         print('weightAddProcessed: {} entries'.format((weightAddProcessed>0).sum()))
         print('weightSubtractProcessed: {} entries'.format((weightSubtractProcessed>0).sum()))
@@ -475,7 +539,7 @@ class Simulation:
         # Check if we are too slow to achieve the arrival time
         if stint['arrivalTimeDelta'] > 0 :
             # Increase speed at cheap locations
-            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(1, 0.01*stint['arrivalTimeDelta']), 0.11)
+            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(1, 0.01*stint['arrivalTimeDelta']), self.settings['simulation']['minStepSizeSpeedAdd'])
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -488,7 +552,7 @@ class Simulation:
             
         elif (stint['arrivalTimeDelta'] < -self.settings['simulation']['arrivalTimeTolerance']) | (stint['data'].sens_powerPerKphDeltaToMin_gated.max() > self.settings['simulation']['powerSensitivityTolerance']):
             # Decrease speed at expensive locations
-            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(10,-stint['arrivalTimeDelta']), 0.1)
+            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(10,-stint['arrivalTimeDelta']), self.settings['simulation']['minStepSizeSpeedSubtract'])
             
             # Set new speed
 #            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
