@@ -110,7 +110,7 @@ class Simulation:
         
         yRotationPattern = self.solarprojectedAreaY.rotation.to_numpy()
         
-        yRotation = np.array(yRotationPattern)
+        yRotation = np.array([])
         xRotation = np.array([])
         areaRatio = np.array([])
         
@@ -258,6 +258,7 @@ class Simulation:
         self.calculateAero(stint)
         self.calculateMech(stint)
         self.calculateElec(stint)
+        self.calculateSolar(stint)
         self.calculateEnergy(stint)
     
     def calculateTime(self, stint):
@@ -309,13 +310,7 @@ class Simulation:
             l.latitude = stint['data']['latitude'][i]
             l.longitude = stint['data']['longitude'][i]
             l.timezone = self.settings['time']['timezone']['name']
-#            l.timezone = 'Europe/London'
             l.elevation = 0
-            
-#            print('time: {}'.format(stint['data']['time'][i].to_pydatetime()))
-#            print('l: {}'.format(l))
-#            print('solar elevation: {}'.format(l.solar_elevation(stint['data']['time'][i].to_pydatetime())))
-#            print('')
             
             stint['data'].at[i, 'solar__sunElevationAngle'] = l.solar_elevation(stint['data']['time'][i].to_pydatetime())
             stint['data'].at[i, 'solar__sunAzimuthAngle'] = l.solar_azimuth(stint['data']['time'][i].to_pydatetime())
@@ -471,6 +466,27 @@ class Simulation:
         self.updateCol(stint['data'], 'elec__totalLossesPower', 0)
         self.updateCol(stint['data'], 'elec__d_totalLossesEnergy', 0)
         self.updateCol(stint['data'], 'elec__totalLossesEnergy', 0)
+        
+    def calculateSolar(self, stint):
+        sunAzimuthRelativeCar = (stint['data']['solar__sunAzimuthAngle'].to_numpy() - stint['data']['heading'].to_numpy()) * self.deg2rad
+        sunAzimuthRelativeCar[sunAzimuthRelativeCar<0] = sunAzimuthRelativeCar[sunAzimuthRelativeCar<0] + math.pi
+        sunElevation = stint['data']['solar__sunElevationAngle'].to_numpy() * self.deg2rad
+        
+        temp = np.arctan( np.sin(sunElevation) / (np.cos(sunElevation) *  np.sin(sunAzimuthRelativeCar)) ) * self.rad2deg
+        rotationX = -np.sign(temp)*90 + temp
+        
+        temp2 = np.arctan( np.sin(sunElevation) / (np.cos(sunElevation) *  np.cos(sunAzimuthRelativeCar)) ) * self.rad2deg
+        rotationY = -np.sign(temp2)*90 + temp2
+        
+        self.updateCol(stint['data'], 'solar__sunAzimuthRelativeCar', sunAzimuthRelativeCar*self.rad2deg)
+        self.updateCol(stint['data'], 'solar__rotationX', rotationX)
+        self.updateCol(stint['data'], 'solar__rotationY', rotationY)
+        
+        projectedAreaRatio = griddata((self.solarXRotation, self.solarYRotation), self.solarAreaRatio, (np.abs(rotationX), rotationY), method='linear')
+        projectedArea = projectedAreaRatio * self.settings['solar']['NCells'] * self.settings['solar']['areaPerCell'] * self.settings['solar']['ratioProjectedFlat']
+        
+        self.updateCol(stint['data'], 'solar__projectedAreaRatio', projectedAreaRatio)
+        self.updateCol(stint['data'], 'solar__projectedArea', projectedArea)
         
     def calculateEnergy(self, stint):
         

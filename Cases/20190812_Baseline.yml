@@ -23,6 +23,7 @@ tyres:
   rollingRadius: 0.269
   loadedRadius: 0.269
 solar:
+  irradiationNominal: 900 # W/m2
   NCells: 303
   areaPerCell: 0.0153
   ratioProjectedFlat: 0.972367817
