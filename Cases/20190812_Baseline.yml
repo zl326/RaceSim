@@ -2,28 +2,28 @@ meta:
   name: 20190812_Baseline
 simulation:
   arrivalTimeTolerance: 5 # seconds
-  powerSensitivityTolerance: 0.001 # Power per kph
+  powerSensitivityTolerance: 0.1 # Power per kph
   iterLimit: 1000
-  convergenceAggressiveness: 0.8
+  convergenceAggressiveness: 1
   minStepSizeSpeedAdd: 0.01
-  minStepSizeSpeedSubtract: 0.0075
+  minStepSizeSpeedSubtract: 0.005
 initialConditions:
   time: 2019-10-13T08:30:00+00:00
   distance: 0
 car:
   mass: 800
-  wheelbase: 2.825
+  # wheelbase: 2.825
   NMotors: 2
   # CoG_x: 2.0 # longitudinal CoG location behind front wheel centreline
   # CoG_z: 0.7 # vertical CoG location above ground
 aero:
-  CdA: 0.175
+  CdA: 0.2
 tyres:
   Crr: 0.005
   rollingRadius: 0.269
   loadedRadius: 0.269
 solar:
-  irradiationNominal: 900 # W/m2
+  irradianceNominal: 800 # W/m2
   NCells: 303
   areaPerCell: 0.0153
   ratioProjectedFlat: 0.972367817
@@ -31,6 +31,14 @@ solar:
   efficiencyEncapsulation: 0.94
   projectedAreaXFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Solar\projectedArea_rotateX.csv
   projectedAreaYFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Solar\projectedArea_rotateY.csv
+battery:
+  capacity: 100.8E+6 # Joules
+  cellDischargeCurveFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Electrical\cellDischargeCurve.csv
+  NCellsParallel: 48
+  NCellsSeries: 32
+  resistanceInternalCell: 0.022 # Ohms
+powertrain:
+  waveSculptorEfficiencyFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Electrical\WavesculptorEfficiency.csv
 weather:
   fromCsv: false
   filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
@@ -65,9 +73,9 @@ route:
       controlStops:
         - Katherine
         - Dunmarra
-      SOCStart:
-      driverChanges:
-        - 150
+      SOCInitial: 100.8E+6
+      # driverChanges:
+      #   - 150
     - startLocation: Tennant Creek
       endLocation: Coober Pedy
       startDayDefault: 3
@@ -76,6 +84,7 @@ route:
         - Barrow Creek
         - Alice Springs
         - Kulgera
+      SOCInitial: 100.8E+6
     - startLocation: Coober Pedy
       endLocation: Adelaide
       startDayDefault: 5   
@@ -83,34 +92,35 @@ route:
       controlStops:
         - Glendambo
         - Port Augusta
+      SOCInitial: 100.8E+6
   speedConstraints:
     - startDistance: 0
       speedMin: 0
       speedMax: 999
-    # - startDistance: 0
-    #   speedMin: 30
-    #   speedMax: 30
-    # - startDistance: 10
-    #   speedMin: 40
-    #   speedMax: 40
-    # - startDistance: 20
-    #   speedMin: 50
-    #   speedMax: 50
-    # - startDistance: 30
-    #   speedMin: 60
-    #   speedMax: 60
-    # - startDistance: 40
-    #   speedMin: 70
-    #   speedMax: 70
-    # - startDistance: 50
-    #   speedMin: 80
-    #   speedMax: 80
-    # - startDistance: 60
-    #   speedMin: 90
-    #   speedMax: 90
-    # - startDistance: 70
-    #   speedMin: 0
-    #   speedMax: 999
+    - startDistance: 0
+      speedMin: 30
+      speedMax: 30
+    - startDistance: 10
+      speedMin: 40
+      speedMax: 40
+    - startDistance: 20
+      speedMin: 50
+      speedMax: 50
+    - startDistance: 30
+      speedMin: 60
+      speedMax: 60
+    - startDistance: 40
+      speedMin: 70
+      speedMax: 70
+    - startDistance: 50
+      speedMin: 80
+      speedMax: 80
+    - startDistance: 60
+      speedMin: 90
+      speedMax: 90
+    - startDistance: 70
+      speedMin: 0
+      speedMax: 999
   locations:
     - name: Darwin
       distance: 0

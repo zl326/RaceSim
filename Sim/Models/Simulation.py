@@ -40,6 +40,7 @@ class Simulation:
         self.getRoute()
         self.getWeatherData()
         self.getSolarProjectedAreaData()
+        self.getElectricalData()
         
         self.updateCol(self.data, 'simName', self.settings['meta']['name'])
         
@@ -128,6 +129,13 @@ class Simulation:
         self.solarXRotation = xRotation
         self.solarYRotation = yRotation
         self.solarAreaRatio = areaRatio
+        
+    def getElectricalData(self):
+        self.efficiencyMotorController = pd.read_csv(self.settings['powertrain']['waveSculptorEfficiencyFilePath'])
+        self.batteryCellDischargeCurve = pd.read_csv(self.settings['battery']['cellDischargeCurveFilePath'])
+        
+        # Initialise battery SOC
+        self.updateCol(self.data, 'car__rSOC', 1)
     
     def getWeatherData(self):
         
@@ -273,32 +281,34 @@ class Simulation:
         self.updateCol(stint['data'], 'solar__sunElevationAngle', 0)
         self.updateCol(stint['data'], 'solar__sunAzimuthAngle', 0)
         
-        for i in range(1, len(stint['data'])):
-            averageSpeed = 0.5*stint['data'].speed[i] + 0.5*stint['data'].speed[i-1]
+        for i in range(0, len(stint['data'])):
             
-            d_time = datetime.timedelta(hours=stint['data'].d_distance[i]/averageSpeed)
-            d_timeDriving = d_time
-            
-            # Account for controls stops
-            for iControlStop in range(0,stint['NControlStops']):
-                if (stint['data'].distance[i-1] <= self.locations[stint['controlStops'][iControlStop]]['distance']) & (stint['data'].distance[i] > self.locations[stint['controlStops'][iControlStop]]['distance']):
-                    d_time += datetime.timedelta(minutes=self.settings['time']['controlStops']['duration'])
-            
-            # Account for end of day
-            if stint['data'].day[i] < len(self.settings['time']['days']):
-                if stint['data'].at[i-1, 'time'] + d_time > self.settings['time']['days'][stint['data'].day[i]-1]['end']:
-                    d_time += self.settings['time']['days'][stint['data'].day[i]]['start'] - self.settings['time']['days'][stint['data'].day[i]-1]['end']
-                    stint['data'].at[i:len(stint['data']), 'day'] = stint['data'].day[i]+1
-            
-            # Final step, perform the addition of time
-            stint['data'].at[i, 'time'] = stint['data'].at[i-1, 'time'] + d_time
-            stint['data'].at[i, 'time_unix'] = stint['data'].at[i, 'time'].timestamp()
-            stint['data'].at[i, 'd_time'] = d_time
-            stint['data'].at[i, 'd_timeDriving'] = d_timeDriving
-            
-            # Backfill i=0
-            if i == 1:
-                stint['data'].at[0, 'time_unix'] = stint['data'].at[0, 'time'].timestamp()
+            if i > 0:
+                averageSpeed = 0.5*stint['data'].speed[i] + 0.5*stint['data'].speed[i-1]
+                
+                d_time = datetime.timedelta(hours=stint['data'].d_distance[i]/averageSpeed)
+                d_timeDriving = d_time
+                
+                # Account for controls stops
+                for iControlStop in range(0,stint['NControlStops']):
+                    if (stint['data'].distance[i-1] <= self.locations[stint['controlStops'][iControlStop]]['distance']) & (stint['data'].distance[i] > self.locations[stint['controlStops'][iControlStop]]['distance']):
+                        d_time += datetime.timedelta(minutes=self.settings['time']['controlStops']['duration'])
+                
+                # Account for end of day
+                if stint['data'].day[i] < len(self.settings['time']['days']):
+                    if stint['data'].at[i-1, 'time'] + d_time > self.settings['time']['days'][stint['data'].day[i]-1]['end']:
+                        d_time += self.settings['time']['days'][stint['data'].day[i]]['start'] - self.settings['time']['days'][stint['data'].day[i]-1]['end']
+                        stint['data'].at[i:len(stint['data']), 'day'] = stint['data'].day[i]+1
+                
+                # Final step, perform the addition of time
+                stint['data'].at[i, 'time'] = stint['data'].at[i-1, 'time'] + d_time
+                stint['data'].at[i, 'time_unix'] = stint['data'].at[i, 'time'].timestamp()
+                stint['data'].at[i, 'd_time'] = d_time
+                stint['data'].at[i, 'd_timeDriving'] = d_timeDriving
+                
+                # Backfill i=0
+                if i == 1:
+                    stint['data'].at[0, 'time_unix'] = stint['data'].at[0, 'time'].timestamp()
                 
             
             ### CALCULATE POSITION OF SUN ###
@@ -422,14 +432,20 @@ class Simulation:
         self.updateCol(stint['data'], 'mech__d_tyreRollingResistanceEnergy', 0)
         self.updateCol(stint['data'], 'mech__tyreRollingResistanceEnergy', 0)
         
-        ### GENERAL ###
+        ### CHASSIS ###
         self.updateCol(stint['data'], 'mech__chassisRollingResistanceForce', 0)
         self.updateCol(stint['data'], 'mech__chassisRollingResistancePower', stint['data'].mech__chassisRollingResistanceForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'mech__d_chassisRollingResistanceEnergy', 0)
         self.updateCol(stint['data'], 'mech__chassisRollingResistanceEnergy', 0)
         
+        ### GRAVITY ###
+        self.updateCol(stint['data'], 'mech__gravityResistanceForce', self.settings['car']['mass'] * self.g * np.sin(stint['data']['inclination_angle'].to_numpy()) )
+        self.updateCol(stint['data'], 'mech__gravityRollingResistancePower', stint['data'].mech__gravityResistanceForce*stint['data'].speed*self.kph2ms)
+        self.updateCol(stint['data'], 'mech__d_gravityRollingResistanceEnergy', 0)
+        self.updateCol(stint['data'], 'mech__gravityRollingResistanceEnergy', 0)
+        
         ### TOTAL ###
-        self.updateCol(stint['data'], 'mech__totalResistiveForce', Crr*stint['data'].car__ForceNormal)
+        self.updateCol(stint['data'], 'mech__totalResistiveForce', stint['data'].mech__tyreRollingResistanceForce + stint['data'].mech__chassisRollingResistanceForce + stint['data'].mech__gravityResistanceForce)
         self.updateCol(stint['data'], 'mech__totalResistivePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'mech__d_totalResistiveEnergy', 0)
         self.updateCol(stint['data'], 'mech__totalResistiveEnergy', 0)
@@ -444,13 +460,18 @@ class Simulation:
             stint['data'].at[i, 'mech__d_chassisRollingResistanceEnergy'] = mech__chassisRollingResistanceForce_avg*stint['data'].d_distance[i]*1000
             stint['data'].at[i, 'mech__chassisRollingResistanceEnergy'] = stint['data'].at[i-1, 'mech__chassisRollingResistanceEnergy'] + stint['data'].at[i, 'mech__d_chassisRollingResistanceEnergy']
             
+            mech__gravityResistanceForce_avg = 0.5*stint['data'].mech__gravityResistanceForce[i] + 0.5*stint['data'].mech__gravityResistanceForce[i-1]
+            stint['data'].at[i, 'mech__d_gravityRollingResistanceEnergy'] = mech__gravityResistanceForce_avg*stint['data'].d_distance[i]*1000
+            stint['data'].at[i, 'mech__gravitysRollingResistanceEnergy'] = stint['data'].at[i-1, 'mech__gravityRollingResistanceEnergy'] + stint['data'].at[i, 'mech__d_gravityRollingResistanceEnergy']
+            
             mech__totalResistiveForce_avg = 0.5*stint['data'].mech__totalResistiveForce[i] + 0.5*stint['data'].mech__totalResistiveForce[i-1]
             stint['data'].at[i, 'mech__d_totalResistiveEnergy'] = mech__totalResistiveForce_avg*stint['data'].d_distance[i]*1000
             stint['data'].at[i, 'mech__totalResistiveEnergy'] = stint['data'].at[i-1, 'mech__totalResistiveEnergy'] + stint['data'].at[i, 'mech__d_totalResistiveEnergy']
         
     def calculateElec(self, stint):
         
-        # Fetch parameters
+        ### MOTOR ###
+        # Torque and speed
         rollingRadius = self.settings['tyres']['rollingRadius']
         NMotors = self.settings['car']['NMotors']
         
@@ -458,18 +479,87 @@ class Simulation:
         
         motorTorque = rollingRadius * resistiveForcesCombined / NMotors
         motorSpeed = stint['data']['speed'].to_numpy() * self.kph2ms / rollingRadius
+        motorPowerTractive = motorTorque * motorSpeed
         
         self.updateCol(stint['data'], 'elec__motorTorque', motorTorque)
         self.updateCol(stint['data'], 'elec__motorSpeed', motorSpeed)
         self.updateCol(stint['data'], 'elec__motorSpeedRPM', motorSpeed*self.rads2RPM)
+        self.updateCol(stint['data'], 'elec__motorPowerTractive', motorPowerTractive)
         
-        self.updateCol(stint['data'], 'elec__totalLossesPower', 0)
+        # Temperature
+        for i in range(0, len(stint['data'])):
+            Tw = 323 # Approx winding temp, initial condition
+            
+            Tw_err = np.inf
+            
+            while Tw_err > 1 :
+                Tm = 0.5*(stint['data']['weather__airTemp'][i]+self.C2K + Tw) # Magnet temp
+                B = 1.32-1.2E-3 * (Tm - 293) # Magnet remanence
+                i_rms = 0.561*B*stint['data']['elec__motorTorque'][i] # RMS per phase motor current
+                R = 0.0575 * (1 + 0.0039*(Tw - 293)) # Per phase motor winding resistance
+                Pc = 3*i_rms**2*R # Total motor winding i2R copper loss
+                Pe = (9.602E-6 * (B*stint['data']['elec__motorSpeed'][i])**2) / R # Total motor eddy current loss
+                
+                Tw_new = 0.455*(Pc + Pe) + stint['data']['weather__airTemp'][i]+self.C2K # New estimate for motor winding temperature
+                Tw_err = np.abs(Tw_new - Tw)
+                Tw = Tw_new
+            
+            stint['data'].at[i, 'elec__motorTempWinding'] = Tw
+            stint['data'].at[i, 'elec__motorTempMagnet'] = Tm
+            stint['data'].at[i, 'elec__motorMagnetRemanence'] = B
+            stint['data'].at[i, 'elec__motorCurrentPerPhase'] = i_rms
+            stint['data'].at[i, 'elec__motorResistanceWinding'] = R
+            stint['data'].at[i, 'elec__motorPowerWinding'] = Pc
+            stint['data'].at[i, 'elec__motorPowerEddyCurrent'] = Pe
+            stint['data'].at[i, 'elec__motorPowerLossTotal'] = Pc + Pe
+        
+        powerMotorTotal = motorPowerTractive + stint['data']['elec__motorPowerLossTotal'].to_numpy()
+        self.updateCol(stint['data'], 'elec__motorPowerTotal', powerMotorTotal)
+        
+        ### MOTOR CONTROLLER ###
+        
+        efficiencyMotorController = griddata((self.efficiencyMotorController.motorSpeed, self.efficiencyMotorController.motorTorque), self.efficiencyMotorController.efficiency, (stint['data']['elec__motorSpeed'].to_numpy(), stint['data']['elec__motorTorque'].to_numpy()), method='linear')
+        motorControllerPowerLoss = (1 / efficiencyMotorController - 1) * powerMotorTotal
+        
+        self.updateCol(stint['data'], 'elec__efficiencyMotorController', efficiencyMotorController)
+        self.updateCol(stint['data'], 'elec__motorControllerPowerLoss', motorControllerPowerLoss)
+        
+        
+        ### BATTERY ###
+        
+        powerDemand = powerMotorTotal + motorControllerPowerLoss
+        
+        cellVoltage = griddata(self.batteryCellDischargeCurve.rSOC, self.batteryCellDischargeCurve.voltage, stint['data']['car__rSOC'].to_numpy(), method='linear')
+        packVoltage = cellVoltage * self.settings['battery']['NCellsSeries']
+        
+        cellResistance = self.settings['battery']['resistanceInternalCell']
+        packResistance = cellResistance / self.settings['battery']['NCellsParallel'] * self.settings['battery']['NCellsSeries']
+        
+        packCurrent = powerDemand / packVoltage
+        
+        packPowerLoss = packCurrent**2 * packResistance
+        
+        self.updateCol(stint['data'], 'elec__batteryCellVoltage', cellVoltage)
+        self.updateCol(stint['data'], 'elec__batteryPackVoltage', packVoltage)
+        self.updateCol(stint['data'], 'elec__batteryPackCurrent', packCurrent)
+        self.updateCol(stint['data'], 'elec__batteryPackPowerLoss', packPowerLoss)
+        
+        ### TOTAL ###
+        
+        self.updateCol(stint['data'], 'elec__totalLossesPower', Pc + Pe + motorControllerPowerLoss + packPowerLoss)
         self.updateCol(stint['data'], 'elec__d_totalLossesEnergy', 0)
         self.updateCol(stint['data'], 'elec__totalLossesEnergy', 0)
         
+        for i in range(1, len(stint['data'])):
+            
+            power_avg = 0.5*stint['data'].elec__totalLossesPower[i] + 0.5*stint['data'].elec__totalLossesPower[i-1]
+            
+            stint['data'].at[i, 'elec__d_totalLossesEnergy'] = power_avg*stint['data']['d_timeDriving'][i].seconds
+            stint['data'].at[i, 'elec__totalLossesEnergy'] = stint['data'].at[i-1, 'elec__totalLossesEnergy'] + stint['data'].at[i, 'elec__d_totalLossesEnergy']
+        
     def calculateSolar(self, stint):
         sunAzimuthRelativeCar = (stint['data']['solar__sunAzimuthAngle'].to_numpy() - stint['data']['heading'].to_numpy()) * self.deg2rad
-        sunAzimuthRelativeCar[sunAzimuthRelativeCar<0] = sunAzimuthRelativeCar[sunAzimuthRelativeCar<0] + math.pi
+#        sunAzimuthRelativeCar[sunAzimuthRelativeCar<0] = sunAzimuthRelativeCar[sunAzimuthRelativeCar<0] + math.pi
         sunElevation = stint['data']['solar__sunElevationAngle'].to_numpy() * self.deg2rad
         
         temp = np.arctan( np.sin(sunElevation) / (np.cos(sunElevation) *  np.sin(sunAzimuthRelativeCar)) ) * self.rad2deg
@@ -488,11 +578,36 @@ class Simulation:
         self.updateCol(stint['data'], 'solar__projectedAreaRatio', projectedAreaRatio)
         self.updateCol(stint['data'], 'solar__projectedArea', projectedArea)
         
+        cloudCover = 0.2
+        irradianceNominal = self.settings['solar']['irradianceNominal']
+        
+        powerIncidentOnArray = irradianceNominal * (1 - cloudCover) * projectedArea
+        powerCapturedArray = powerIncidentOnArray * self.settings['solar']['efficiencyEncapsulation'] * self.settings['solar']['efficiencyCell']
+        
+        self.updateCol(stint['data'], 'solar__powerIncidentOnArray', powerIncidentOnArray)
+        self.updateCol(stint['data'], 'solar__powerCapturedArray', powerCapturedArray)
+        
+        self.updateCol(stint['data'], 'solar__d_energyCapturedArray', 0)
+        self.updateCol(stint['data'], 'solar__energyCapturedArray', 0)
+        for i in range(1, len(stint['data'])):
+            power_avg = 0.5*stint['data'].solar__powerCapturedArray[i] + 0.5*stint['data'].solar__powerCapturedArray[i-1]
+            delta_time = stint['data'].time[i] - stint['data'].time[i-1]
+            
+            stint['data'].at[i, 'solar__d_energyCapturedArray'] = power_avg*delta_time.seconds
+            stint['data'].at[i, 'solar__energyCapturedArray'] = stint['data'].at[i-1, 'solar__energyCapturedArray'] + stint['data'].at[i, 'solar__d_energyCapturedArray']
+            
+        
     def calculateEnergy(self, stint):
         
         self.updateCol(stint['data'], 'car__powerUsed', stint['data'].aero__dragPower + stint['data'].mech__totalResistivePower + stint['data'].elec__totalLossesPower)
         self.updateCol(stint['data'], 'car__d_energyUsed', stint['data'].aero__d_dragEnergy + stint['data'].mech__d_totalResistiveEnergy + stint['data'].elec__d_totalLossesEnergy)
         self.updateCol(stint['data'], 'car__energyUsed', stint['data'].aero__dragEnergy + stint['data'].mech__totalResistiveEnergy + stint['data'].elec__totalLossesEnergy)
+        
+        self.updateCol(stint['data'], 'car__SOC_Delta', stint['data'].solar__energyCapturedArray - stint['data'].car__energyUsed)
+        self.updateCol(stint['data'], 'car__powerDelta', stint['data'].solar__powerCapturedArray - stint['data'].car__powerUsed)
+        
+        self.updateCol(stint['data'], 'car__SOC', stint['SOCInitial'] + stint['data'].car__SOC_Delta.to_numpy())
+        self.updateCol(stint['data'], 'car__rSOC', stint['data'].car__SOC.to_numpy() / self.settings['battery']['capacity'])
     
     def calculateSensitivities(self, stint):
         
@@ -553,9 +668,9 @@ class Simulation:
         stepSize = np.nan
         
         # Check if we are too slow to achieve the arrival time
-        if stint['arrivalTimeDelta'] > 0 :
+        if stint['arrivalTimeDelta'] > self.settings['simulation']['arrivalTimeTolerance'] :
             # Increase speed at cheap locations
-            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()*10), min(1, 0.01*stint['arrivalTimeDelta']), self.settings['simulation']['minStepSizeSpeedAdd'])
+            stepSize = max(min(10,0.6*stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(2, 0.001*stint['arrivalTimeDelta']**2), self.settings['simulation']['minStepSizeSpeedAdd'])
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -571,15 +686,18 @@ class Simulation:
             stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(10,-stint['arrivalTimeDelta']), self.settings['simulation']['minStepSizeSpeedSubtract'])
             
             # Set new speed
-#            self.updateCol(stint['data'], 'speed', stint['data'].speed + 0.1*stepSize*stint['data'].sens_powerPerKph_weightAdd)
-            self.updateCol(stint['data'], 'speed', stint['data'].speed - stepSize*stint['data'].sens_powerPerKph_weightSubtract)
-            
+            if stint['arrivalTimeDelta'] > 0:
+                self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
+                changesMade = '+Speed'
+            else:
+                self.updateCol(stint['data'], 'speed', stint['data'].speed - stepSize*stint['data'].sens_powerPerKph_weightSubtract)
+                changesMade = '-Speed'
             
             # Apply speed constraints
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMin]).max())
             self.updateCol(stint['data'], 'speed', pd.DataFrame([stint['data'].speed, stint['data'].speedMax]).min())
             
-            changesMade = '-Speed'
+            
         
         print('stepSize: {}'.format(stepSize))
         return changesMade

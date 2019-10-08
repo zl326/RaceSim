@@ -1,6 +1,16 @@
+### Git ###
+https://github.com/zl326/RaceSim.git
+
 ### Dummy data to replace ###
 
 Weather
+ - air temp (C)
+ - air pressure (Pa)
+ - humidity (0 --> 1)
+ - cloud cover (0 --> 1)
+ - wind speed kph)
+ - wind direction (cardinal directions, e.g. NNW, SE, ENE)
+ - chance of precipitation (0 --> 1)
 Crr
 Rolling radius
 
@@ -13,14 +23,18 @@ Control stop duration
 ### To add ###
 
 Aero XWind effect
-Electrical model
 Driver change stoppages
-solar area projected (area ratio relative to plan view, function of [elevation angle] and [azimuth angle])
-solar model
-Battery model
+Weather from Mongo
 
-ku2h6e
-57ggu3
+
+
+Drivetrain losses
+I2R losses from batteries 
+ - 22 mOhms/cell / 48 in parallel * in series 32 , round up, nominal 134.4V  80-140V range
+ - 0.0147 Ohm
+
+2.5, 4.2 each cell
+
 
 900-1100 @ 30 back
 1200 @ 40 main
@@ -54,6 +68,13 @@ Total cell area (flat) = 4.6359m2
 
 ### Misc ###
 
+xz353@cam.ac.uk
+wscHELIA20!9
+
 CUER
 HSBC UK Bank PLC
 40-16-57 51438204
+
+ku2h6e
+57ggu3
+
