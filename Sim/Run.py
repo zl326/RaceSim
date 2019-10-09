@@ -20,6 +20,7 @@ for iStint in range(0,sim.NStints):
             while bChangesMade & (iteration < sim.settings['simulation']['iterLimit']):
                 
                 iteration += 1
+                stint['interation'] = iteration
                 
                 # Run the models
                 sim.calculateTime(stint)

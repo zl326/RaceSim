@@ -248,6 +248,7 @@ class Simulation:
             endDistance = self.locations[self.stints[iStint]['endLocation']]['distance']
             
             # Meta data
+            self.stints[iStint]['isSensitivities'] = False
             self.stints[iStint]['nStint'] = stintNumber
             self.stints[iStint]['startDistance'] = startDistance
             self.stints[iStint]['endDistance'] = endDistance
@@ -406,75 +407,80 @@ class Simulation:
     def getWeather(self, stint):
         # Fetch the weather conditions for every point on the route at the specified time
         
-        # Default values
-        self.updateCol(stint['data'], 'weather__airTemp', 30)
-        self.updateCol(stint['data'], 'weather__airPressure', 101250)
-        self.updateCol(stint['data'], 'weather__humidity', 0)
-        self.updateCol(stint['data'], 'weather__windSpeed', 0)
-        self.updateCol(stint['data'], 'weather__windDirection', 0)
-        self.updateCol(stint['data'], 'weather__windHeading', 180)
-        self.updateCol(stint['data'], 'weather__airDensity', 1.225)
-        self.updateCol(stint['data'], 'weather__cloudCover', 0.0)
-        
-        if self.settings['weather']['fromMongo']:
+        if (not stint['isSensitivities']) & (stint['interation']%self.settings['weather']['iterationsPerEvaluation']==1):
             
-            d_query_norm = (stint['data'].distance.to_numpy() - self.weather['d_min'])/self.weather['d_range']
-            t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() * 1E-9 - self.weather['t_min'])/self.weather['t_range']
+            # Default values
+            self.updateCol(stint['data'], 'weather__airTemp', 30)
+            self.updateCol(stint['data'], 'weather__airPressure', 101250)
+            self.updateCol(stint['data'], 'weather__humidity', 0)
+            self.updateCol(stint['data'], 'weather__windSpeed', 0)
+            self.updateCol(stint['data'], 'weather__windDirection', 0)
+            self.updateCol(stint['data'], 'weather__windHeading', 180)
+            self.updateCol(stint['data'], 'weather__airDensity', 1.225)
+            self.updateCol(stint['data'], 'weather__cloudCover', 0.0)
             
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['airTemp'], d_query_norm, t_query_norm, 'weather__airTemp')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['airPressure'], d_query_norm, t_query_norm, 'weather__airPressure')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['humidity'], d_query_norm, t_query_norm, 'weather__humidity')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windSpeed'], d_query_norm, t_query_norm, 'weather__windSpeed')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windGust'], d_query_norm, t_query_norm, 'weather__windGust')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windDirection'], d_query_norm, t_query_norm, 'weather__windDirection')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windHeading'], d_query_norm, t_query_norm, 'weather__windHeading')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['cloudCover'], d_query_norm, t_query_norm, 'weather__cloudCover')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipProbability'], d_query_norm, t_query_norm, 'weather__precipProbability')
-            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipIntensity'], d_query_norm, t_query_norm, 'weather__precipIntensity')
-            
-            
-        elif self.settings['weather']['fromCsv']:
-            # Normalise the distance and time so that the interpolation algorithm is well conditioned
-            d = self.weatherData.distance.to_numpy()
-            d_min = min(d)
-            d_max = max(d)
-            d_range = d_max - d_min
-            d_norm = (d - d_min)/d_range
-            
-            t = self.weatherData.datetime.astype(np.int64).to_numpy()
-            t_min = min(t)
-            t_max = max(t)
-            t_range = t_max - t_min
-            t_norm = (t - t_min)/t_range
-            
-            d_query_norm = (stint['data'].distance.to_numpy() - d_min)/d_range
-            t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() - t_min)/t_range
-            
-            # Interpolate the data for each quantity of interest
-            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airTemp.to_numpy(), d_query_norm, t_query_norm, 'weather__airTemp')
-            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airPressure.to_numpy(), d_query_norm, t_query_norm, 'weather__airPressure')
-            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.humidity.to_numpy(), d_query_norm, t_query_norm, 'weather__humidity')
-            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windSpeed.to_numpy(), d_query_norm, t_query_norm, 'weather__windSpeed')
-            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompN.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompN')
-            self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompE.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompE')
-            
-            # Change limits of direction to 0-360
-            windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompE'].to_numpy(), stint['data']['weather__windCompN'].to_numpy())
-            windDirectionClean = windDirection + (windDirection<0)*360
-            windHeading = windDirection + 180
-            self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
-            self.updateCol(stint['data'], 'weather__windHeading', windHeading )
-            
-        if self.settings['weather']['fromMongo'] or self.settings['weather']['fromCsv']:
-            ### CALCULATE OTHER PARAMETERS ###
-            # Calculate air density
-#            ρ = 1 / v
-#                = (p / Ra T) (1 + x) / (1 + x Rw / Ra)
-            humidity = stint['data']['weather__humidity'].to_numpy()
-            rho_dryAir = stint['data']['weather__airPressure'].to_numpy() /(self.Ra * (self.C2K + stint['data']['weather__airTemp'].to_numpy()))
-            rho = rho_dryAir * (1+humidity) / (1 + humidity * self.Rw/self.Ra)
-            
-            self.updateCol(stint['data'], 'weather__airDensity', rho)
+            if self.settings['weather']['fromMongo']:
+                
+                d_query_norm = (stint['data'].distance.to_numpy() - self.weather['d_min'])/self.weather['d_range']
+                t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() * 1E-9 - self.weather['t_min'])/self.weather['t_range']
+                
+                print('Weather interp...')
+                
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['airTemp'], d_query_norm, t_query_norm, 'weather__airTemp')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['airPressure'], d_query_norm, t_query_norm, 'weather__airPressure')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['humidity'], d_query_norm, t_query_norm, 'weather__humidity')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windSpeed'], d_query_norm, t_query_norm, 'weather__windSpeed')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windGust'], d_query_norm, t_query_norm, 'weather__windGust')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windDirection'], d_query_norm, t_query_norm, 'weather__windDirection')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windHeading'], d_query_norm, t_query_norm, 'weather__windHeading')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['cloudCover'], d_query_norm, t_query_norm, 'weather__cloudCover')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipProbability'], d_query_norm, t_query_norm, 'weather__precipProbability')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipIntensity'], d_query_norm, t_query_norm, 'weather__precipIntensity')
+                
+                print('Weather interp... Complete')
+                
+            elif self.settings['weather']['fromCsv']:
+                # Normalise the distance and time so that the interpolation algorithm is well conditioned
+                d = self.weatherData.distance.to_numpy()
+                d_min = min(d)
+                d_max = max(d)
+                d_range = d_max - d_min
+                d_norm = (d - d_min)/d_range
+                
+                t = self.weatherData.datetime.astype(np.int64).to_numpy()
+                t_min = min(t)
+                t_max = max(t)
+                t_range = t_max - t_min
+                t_norm = (t - t_min)/t_range
+                
+                d_query_norm = (stint['data'].distance.to_numpy() - d_min)/d_range
+                t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() - t_min)/t_range
+                
+                # Interpolate the data for each quantity of interest
+                self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airTemp.to_numpy(), d_query_norm, t_query_norm, 'weather__airTemp')
+                self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airPressure.to_numpy(), d_query_norm, t_query_norm, 'weather__airPressure')
+                self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.humidity.to_numpy(), d_query_norm, t_query_norm, 'weather__humidity')
+                self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windSpeed.to_numpy(), d_query_norm, t_query_norm, 'weather__windSpeed')
+                self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompN.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompN')
+                self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.windCompE.to_numpy(), d_query_norm, t_query_norm, 'weather__windCompE')
+                
+                # Change limits of direction to 0-360
+                windDirection = self.rad2deg*np.arctan2(stint['data']['weather__windCompE'].to_numpy(), stint['data']['weather__windCompN'].to_numpy())
+                windDirectionClean = windDirection + (windDirection<0)*360
+                windHeading = windDirection + 180
+                self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
+                self.updateCol(stint['data'], 'weather__windHeading', windHeading )
+                
+            if self.settings['weather']['fromMongo'] or self.settings['weather']['fromCsv']:
+                ### CALCULATE OTHER PARAMETERS ###
+                # Calculate air density
+    #            ρ = 1 / v
+    #                = (p / Ra T) (1 + x) / (1 + x Rw / Ra)
+                humidity = stint['data']['weather__humidity'].to_numpy()
+                rho_dryAir = stint['data']['weather__airPressure'].to_numpy() /(self.Ra * (self.C2K + stint['data']['weather__airTemp'].to_numpy()))
+                rho = rho_dryAir * (1+humidity) / (1 + humidity * self.Rw/self.Ra)
+                
+                self.updateCol(stint['data'], 'weather__airDensity', rho)
             
             
         
@@ -708,6 +714,7 @@ class Simulation:
         
         # Make a copy of the stint
         stintCopy = copy.deepcopy(stint)
+        stintCopy['isSensitivities'] = True
         
         # Perturb the speed
         stintCopy['data'].speed = stintCopy['data'].speed + speedPerturbation

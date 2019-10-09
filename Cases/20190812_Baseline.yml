@@ -43,6 +43,7 @@ weather:
   fromMongo: true
   fromCsv: false
   filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
+  iterationsPerEvaluation: 25
 time:
   timezone:
     name: Australia/Darwin
