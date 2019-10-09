@@ -167,11 +167,14 @@ class Simulation:
                 
         elif self.settings['weather']['fromMongo']:
             
+            print('Fetching from... {}'.format(self.settings['time']['days'][0]['start'].timestamp()))
+            print('Fetching to... {}'.format(self.settings['time']['days'][-1]['end'].timestamp()))
+            
             self.weatherCursor = self.db_weather.find({
                 "_docType": "hourly",
                 "time": {
-                    "$gte": self.settings['time']['days'][0]['start'].timestamp() - 8.5*3600 - 1.0*3600,
-                    "$lte": self.settings['time']['days'][len(self.settings['time']['days'])-1]['end'].timestamp() - 8.5*3600 + 1.0*3600
+                    "$gte": self.settings['time']['days'][0]['start'].timestamp() - 1.0*3600,
+                    "$lte": self.settings['time']['days'][-1]['end'].timestamp() + 1.0*3600
                 }
             })
             
@@ -423,6 +426,9 @@ class Simulation:
                 
                 d_query_norm = (stint['data'].distance.to_numpy() - self.weather['d_min'])/self.weather['d_range']
                 t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() * 1E-9 - self.weather['t_min'])/self.weather['t_range']
+                
+                self.updateCol(stint['data'], 'weather__d_query_norm', d_query_norm)
+                self.updateCol(stint['data'], 'weather__t_query_norm', t_query_norm)
                 
                 print('Weather interp...')
                 
@@ -770,7 +776,7 @@ class Simulation:
         # Check if we are too slow to achieve the arrival time
         if stint['arrivalTimeDelta'] > self.settings['simulation']['arrivalTimeTolerance'] :
             # Increase speed at cheap locations
-            stepSize = max(min(10,0.6*stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(2, 0.001*stint['arrivalTimeDelta']**2), self.settings['simulation']['minStepSizeSpeedAdd'])
+            stepSize = max(min(50,0.6*stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(2, 0.001*stint['arrivalTimeDelta']**2), self.settings['simulation']['minStepSizeSpeedAdd'])
             
             # Set new speed
             self.updateCol(stint['data'], 'speed', stint['data'].speed + stepSize*stint['data'].sens_powerPerKph_weightAdd)
@@ -783,7 +789,7 @@ class Simulation:
             
         elif (stint['arrivalTimeDelta'] < -self.settings['simulation']['arrivalTimeTolerance']) | (stint['data'].sens_powerPerKphDeltaToMin_gated.max() > self.settings['simulation']['powerSensitivityTolerance']):
             # Decrease speed at expensive locations
-            stepSize = max(min(10,stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(10,-stint['arrivalTimeDelta']), self.settings['simulation']['minStepSizeSpeedSubtract'])
+            stepSize = max(min(50,stint['data'].sens_powerPerKphDeltaToMin_gated.max()), min(2, 0.001*stint['arrivalTimeDelta']**2), self.settings['simulation']['minStepSizeSpeedSubtract'])
             
             # Set new speed
             if stint['arrivalTimeDelta'] > 0:
