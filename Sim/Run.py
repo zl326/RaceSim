@@ -39,7 +39,7 @@ for iStint in range(0,sim.NStints):
         else:
             print('Stint #{} not simulated, start time is after arrival time'.format(stint['nStint']))
     else:
-        print('Stint #{} not simulated, start distance is after end distance'.format(stint['nStint']))
+        print('Stint #{} not simulated, start distance is after end distance'.format(stint['nStsint']))
 
 sim.combineStints()
 

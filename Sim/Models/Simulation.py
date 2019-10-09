@@ -1,14 +1,14 @@
 import pandas as pd
 import yaml
 import datetime
-from astral import Astral, Location
-import pytz
+from astral import Location
 import dateutil
 import math
 import numpy as np
 from scipy.interpolate import griddata
 import os
 import copy
+import pymongo
 
 class Simulation:
     
@@ -33,6 +33,12 @@ class Simulation:
                 self.settings = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
                 print(exc)
+        
+        # Initialise MongoDB connection
+        if self.settings['weather']['fromMongo'] :
+            self.mongClient = pymongo.MongoClient('localhost', 27017)
+            db = self.mongClient['CUER']
+            self.db_weather = db['weather']
         
         self.initData()
         
@@ -139,6 +145,8 @@ class Simulation:
     
     def getWeatherData(self):
         
+        print('Loading weather data...'.format())
+        
         if self.settings['weather']['fromCsv']:
             self.weatherData = pd.read_csv(self.settings['weather']['filePath'])
             
@@ -151,15 +159,80 @@ class Simulation:
                     self.weatherData.at[i, 'windCompN'] = math.cos(self.weatherData['windDirectionDeg'][i]*self.deg2rad)
                     self.weatherData.at[i, 'windCompE'] = math.sin(self.weatherData['windDirectionDeg'][i]*self.deg2rad)
                 
-                
                 # Convert to datetime
                 self.weatherData.at[i, 'datetime'] = dateutil.parser.parse(self.weatherData.time[i])
                 
                 # Assign a distance to each location
                 self.weatherData.at[i, 'distance'] = self.locations[self.weatherData.location[i]]['distance']
                 
-                self.weatherDistances = self.unique(self.weatherData.distance.tolist())
+        elif self.settings['weather']['fromMongo']:
             
+            self.weatherCursor = self.db_weather.find({
+                "_docType": "hourly",
+                "time": {
+                    "$gte": self.settings['time']['days'][0]['start'].timestamp() - 8.5*3600 - 1.0*3600,
+                    "$lte": self.settings['time']['days'][len(self.settings['time']['days'])-1]['end'].timestamp() - 8.5*3600 + 1.0*3600
+                }
+            })
+            
+            # Prepare mongo data for interpolation
+            distance = np.array([])
+            time = np.array([])
+            
+            airTemp = np.array([])
+            airPressure = np.array([])
+            humidity = np.array([])
+            windSpeed = np.array([])
+            windGust = np.array([])
+            windDirection = np.array([])
+            windHeading = np.array([])
+#            airDensity = np.array([])
+            cloudCover = np.array([])
+            precipProbability = np.array([])
+            precipIntensity = np.array([])
+            
+            for doc in self.weatherCursor :
+                distance = np.append(distance, doc['_distance'])
+                time = np.append(time, doc['time'] + 9.5*3600)
+                
+                airTemp = np.append(airTemp, doc['temperature'])
+                airPressure = np.append(airPressure, doc['pressure'] * 1E2)
+                humidity = np.append(humidity, doc['humidity'])
+                windSpeed = np.append(windSpeed, doc['windSpeed'] * self.ms2kph)
+                windGust = np.append(windGust, doc['windGust'] * self.ms2kph)
+                windDirection = np.append(windDirection, doc['windBearing'] - 180)
+                windHeading = np.append(windHeading, doc['windBearing'])
+#                airDensity = np.append(airDensity, doc[''])
+                cloudCover = np.append(cloudCover, doc['cloudCover'])
+                precipProbability = np.append(precipProbability, doc['precipProbability'])
+                precipIntensity = np.append(precipIntensity, doc['precipIntensity'])
+                
+            self.weather = {}
+                
+            self.weather['d_min'] = np.min(distance)
+            d_max = np.max(distance)
+            self.weather['d_range'] = d_max - self.weather['d_min']
+            self.weather['d_norm'] = (distance - self.weather['d_min']) / self.weather['d_range']
+            
+            self.weather['t_min'] = np.min(time)
+            t_max = np.max(time)
+            self.weather['t_range'] = t_max - self.weather['t_min']
+            self.weather['t_norm'] = (time - self.weather['t_min']) / self.weather['t_range']
+            
+            self.weather['airTemp'] = airTemp
+            self.weather['airPressure'] = airPressure
+            self.weather['humidity'] = humidity
+            self.weather['windSpeed'] = windSpeed
+            self.weather['windGust'] = windGust
+            self.weather['windDirection'] = windDirection
+            self.weather['windHeading'] = windHeading
+            self.weather['cloudCover'] = cloudCover
+            self.weather['precipProbability'] = precipProbability
+            self.weather['precipIntensity'] = precipIntensity
+            
+        print('Loading weather data... Complete'.format())
+            
+                
     def splitStints(self):
         # Set the stints
         self.stints = self.settings['route']['stints']
@@ -287,6 +360,8 @@ class Simulation:
                 averageSpeed = 0.5*stint['data'].speed[i] + 0.5*stint['data'].speed[i-1]
                 
                 d_time = datetime.timedelta(hours=stint['data'].d_distance[i]/averageSpeed)
+
+
                 d_timeDriving = d_time
                 
                 # Account for controls stops
@@ -329,8 +404,36 @@ class Simulation:
         self.calculateArrivalDelta(stint)
     
     def getWeather(self, stint):
+        # Fetch the weather conditions for every point on the route at the specified time
         
-        if self.settings['weather']['fromCsv']:
+        # Default values
+        self.updateCol(stint['data'], 'weather__airTemp', 30)
+        self.updateCol(stint['data'], 'weather__airPressure', 101250)
+        self.updateCol(stint['data'], 'weather__humidity', 0)
+        self.updateCol(stint['data'], 'weather__windSpeed', 0)
+        self.updateCol(stint['data'], 'weather__windDirection', 0)
+        self.updateCol(stint['data'], 'weather__windHeading', 180)
+        self.updateCol(stint['data'], 'weather__airDensity', 1.225)
+        self.updateCol(stint['data'], 'weather__cloudCover', 0.0)
+        
+        if self.settings['weather']['fromMongo']:
+            
+            d_query_norm = (stint['data'].distance.to_numpy() - self.weather['d_min'])/self.weather['d_range']
+            t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() * 1E-9 - self.weather['t_min'])/self.weather['t_range']
+            
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['airTemp'], d_query_norm, t_query_norm, 'weather__airTemp')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['airPressure'], d_query_norm, t_query_norm, 'weather__airPressure')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['humidity'], d_query_norm, t_query_norm, 'weather__humidity')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windSpeed'], d_query_norm, t_query_norm, 'weather__windSpeed')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windGust'], d_query_norm, t_query_norm, 'weather__windGust')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windDirection'], d_query_norm, t_query_norm, 'weather__windDirection')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['windHeading'], d_query_norm, t_query_norm, 'weather__windHeading')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['cloudCover'], d_query_norm, t_query_norm, 'weather__cloudCover')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipProbability'], d_query_norm, t_query_norm, 'weather__precipProbability')
+            self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipIntensity'], d_query_norm, t_query_norm, 'weather__precipIntensity')
+            
+            
+        elif self.settings['weather']['fromCsv']:
             # Normalise the distance and time so that the interpolation algorithm is well conditioned
             d = self.weatherData.distance.to_numpy()
             d_min = min(d)
@@ -362,6 +465,7 @@ class Simulation:
             self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
             self.updateCol(stint['data'], 'weather__windHeading', windHeading )
             
+        if self.settings['weather']['fromMongo'] or self.settings['weather']['fromCsv']:
             ### CALCULATE OTHER PARAMETERS ###
             # Calculate air density
 #            ρ = 1 / v
@@ -371,17 +475,6 @@ class Simulation:
             rho = rho_dryAir * (1+humidity) / (1 + humidity * self.Rw/self.Ra)
             
             self.updateCol(stint['data'], 'weather__airDensity', rho)
-        else:
-            # If not using csv data, put in default values
-            self.updateCol(stint['data'], 'weather__airTemp', 30)
-            self.updateCol(stint['data'], 'weather__airPressure', 101250)
-            self.updateCol(stint['data'], 'weather__humidity', 0)
-            self.updateCol(stint['data'], 'weather__windSpeed', 0)
-            self.updateCol(stint['data'], 'weather__windCompN', 0)
-            self.updateCol(stint['data'], 'weather__windCompE', 0)
-            self.updateCol(stint['data'], 'weather__windDirection', 0)
-            self.updateCol(stint['data'], 'weather__windHeading', 180)
-            self.updateCol(stint['data'], 'weather__airDensity', 1.225)
             
             
         
@@ -578,7 +671,7 @@ class Simulation:
         self.updateCol(stint['data'], 'solar__projectedAreaRatio', projectedAreaRatio)
         self.updateCol(stint['data'], 'solar__projectedArea', projectedArea)
         
-        cloudCover = 0.2
+        cloudCover = stint['data']['weather__cloudCover'].to_numpy()
         irradianceNominal = self.settings['solar']['irradianceNominal']
         
         powerIncidentOnArray = irradianceNominal * (1 - cloudCover) * projectedArea
