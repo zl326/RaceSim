@@ -686,7 +686,7 @@ class Simulation:
         cloudCover = stint['data']['weather__cloudCover'].to_numpy()
         irradianceNominal = self.settings['solar']['irradianceNominal']
         
-        powerIncidentOnArray = irradianceNominal * (1 - cloudCover) * projectedArea
+        powerIncidentOnArray = irradianceNominal * (1 - 0.75*cloudCover**3) * projectedArea
         powerCapturedArray = powerIncidentOnArray * self.settings['solar']['efficiencyEncapsulation'] * self.settings['solar']['efficiencyCell']
         
         self.updateCol(stint['data'], 'solar__powerIncidentOnArray', powerIncidentOnArray)
