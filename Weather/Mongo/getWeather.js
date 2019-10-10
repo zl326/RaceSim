@@ -6,7 +6,7 @@ const moment = require('moment')
 const csv = require('csvtojson')
 
 
-let routeFilename = `${__dirname}/routeInterpolated.csv`
+let routeFilename = `${__dirname}/routeInterpolated_cutdown.csv`
 
 let apiKey = 'b751290bc7f81afa715bdb6d5eac71ed'
 let requestPrefix = 'https://api.darksky.net/forecast'

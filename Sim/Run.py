@@ -2,11 +2,15 @@
 #from astral import Location as AstralLocation
 
 from Models.Simulation import Simulation
+import time
 
+t_start = time.time()
 
 simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20190812_Baseline.yml'
 
 sim = Simulation(simulationSettingsPath)
+
+iterations = []
 
 for iStint in range(0,sim.NStints):
     stint = sim.stints[iStint]
@@ -37,6 +41,8 @@ for iStint in range(0,sim.NStints):
                 
                 print('Stint #{} | iter {} | sensDelta: {:.6f} | arrivalDelta: {:4.2f} | changeMade: {}\n'.format(stint['nStint'], iteration, stint['data'].sens_powerPerKphDeltaToMin_gated.max(), stint['arrivalTimeDelta'], changesMade))
                 
+            iterations.append(iteration)
+            
         else:
             print('Stint #{} not simulated, start time is after arrival time'.format(stint['nStint']))
     else:
@@ -48,3 +54,13 @@ sim.combineStints()
 #print(sim.data)
 
 sim.writeOutput()
+
+t_end = time.time()
+
+print('Simulation completed in {:4.2f} minutes'.format((t_end-t_start)/60))
+
+for iStint in range(0,sim.NStints):
+    stint = sim.stints[iStint]
+    
+    print('Stint #{}: {} iterations'.format(stint['nStint'], iterations[iStint]))
+    

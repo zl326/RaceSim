@@ -8,7 +8,7 @@ simulation:
   minStepSizeSpeedAdd: 0.01
   minStepSizeSpeedSubtract: 0.005
 initialConditions:
-  time: 2019-10-11T08:30:00+00:00
+  time: 2019-10-12T08:30:00+00:00
   distance: 0
 car:
   mass: 860
@@ -40,7 +40,7 @@ battery:
 powertrain:
   waveSculptorEfficiencyFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Electrical\WavesculptorEfficiency.csv
 weather:
-  fromMongo: true
+  fromMongo: false
   fromCsv: false
   filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
   iterationsPerEvaluation: 25
@@ -48,9 +48,7 @@ time:
   timezone:
     name: Australia/Darwin
   days:
-    - start: 2019-10-11T08:30:00+00:00
-      end: 2019-10-11T17:00:00+00:00
-    - start: 2019-10-12T08:00:00+00:00
+    - start: 2019-10-12T08:30:00+00:00
       end: 2019-10-12T17:00:00+00:00
     - start: 2019-10-13T08:00:00+00:00
       end: 2019-10-13T17:00:00+00:00
@@ -60,6 +58,8 @@ time:
       end: 2019-10-15T17:00:00+00:00
     - start: 2019-10-16T08:00:00+00:00
       end: 2019-10-16T17:00:00+00:00
+    - start: 2019-10-17T08:00:00+00:00
+      end: 2019-10-17T17:00:00+00:00
   driverChange:
     drivingPeriodMax: 120 # minutes
     driverChangeDuration: 5 # minutes
@@ -71,7 +71,7 @@ route:
     - startLocation: Darwin
       endLocation: Tennant Creek
       startDayDefault: 1
-      arrivalTime: 2019-10-12T12:00:00+00:00
+      arrivalTime: 2019-10-13T12:00:00+00:00
       controlStops:
         - Katherine
         - Dunmarra
@@ -81,7 +81,7 @@ route:
     - startLocation: Tennant Creek
       endLocation: Coober Pedy
       startDayDefault: 3
-      arrivalTime: 2019-10-14T14:30:00+00:00
+      arrivalTime: 2019-10-15T14:30:00+00:00
       controlStops:
         - Barrow Creek
         - Alice Springs
@@ -90,7 +90,7 @@ route:
     - startLocation: Coober Pedy
       endLocation: Adelaide
       startDayDefault: 5   
-      arrivalTime: 2019-10-16T09:30:00+00:00
+      arrivalTime: 2019-10-17T09:30:00+00:00
       controlStops:
         - Glendambo
         - Port Augusta

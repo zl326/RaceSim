@@ -17,8 +17,8 @@ class Simulation:
     rad2deg = 180.0/math.pi
     deg2rad = math.pi/180.0
     g = 9.80665
-    Ra = 286.9
-    Rw = 461.5
+    Ra = 287.05
+    Rw = 461.495
     C2K = 273.15
     K2C = -273.15
     rads2RPM = 60/(2*math.pi)
@@ -160,7 +160,7 @@ class Simulation:
                     self.weatherData.at[i, 'windCompE'] = math.sin(self.weatherData['windDirectionDeg'][i]*self.deg2rad)
                 
                 # Convert to datetime
-                self.weatherData.at[i, 'datetime'] = dateutil.parser.parse(self.weatherData.time[i])
+                self.weatherData.at[i, 'datetime'] = dateutil.parser.parse(self.weatherData.time[i], dayfirst=True)
                 
                 # Assign a distance to each location
                 self.weatherData.at[i, 'distance'] = self.locations[self.weatherData.location[i]]['distance']
@@ -193,6 +193,8 @@ class Simulation:
             cloudCover = np.array([])
             precipProbability = np.array([])
             precipIntensity = np.array([])
+            precipIntensity = np.array([])
+            dewPoint = np.array([])
             
             for doc in self.weatherCursor :
                 distance = np.append(distance, doc['_distance'])
@@ -209,6 +211,7 @@ class Simulation:
                 cloudCover = np.append(cloudCover, doc['cloudCover'])
                 precipProbability = np.append(precipProbability, doc['precipProbability'])
                 precipIntensity = np.append(precipIntensity, doc['precipIntensity'])
+                dewPoint = np.append(dewPoint, doc['dewPoint'])
                 
             self.weather = {}
                 
@@ -232,6 +235,7 @@ class Simulation:
             self.weather['cloudCover'] = cloudCover
             self.weather['precipProbability'] = precipProbability
             self.weather['precipIntensity'] = precipIntensity
+            self.weather['dewPoint'] = dewPoint
             
         print('Loading weather data... Complete'.format())
             
@@ -421,6 +425,7 @@ class Simulation:
             self.updateCol(stint['data'], 'weather__windHeading', 180)
             self.updateCol(stint['data'], 'weather__airDensity', 1.225)
             self.updateCol(stint['data'], 'weather__cloudCover', 0.0)
+            self.updateCol(stint['data'], 'weather__dewPoint', 6.0)
             
             if self.settings['weather']['fromMongo']:
                 
@@ -442,6 +447,7 @@ class Simulation:
                 self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['cloudCover'], d_query_norm, t_query_norm, 'weather__cloudCover')
                 self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipProbability'], d_query_norm, t_query_norm, 'weather__precipProbability')
                 self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['precipIntensity'], d_query_norm, t_query_norm, 'weather__precipIntensity')
+                self.getWeather_interpolate(stint['data'], self.weather['d_norm'], self.weather['t_norm'], self.weather['dewPoint'], d_query_norm, t_query_norm, 'weather__dewPoint')
                 
                 print('Weather interp... Complete')
                 
@@ -462,6 +468,9 @@ class Simulation:
                 d_query_norm = (stint['data'].distance.to_numpy() - d_min)/d_range
                 t_query_norm = (stint['data'].time.astype(np.int64).to_numpy() - t_min)/t_range
                 
+                self.updateCol(stint['data'], 'weather__d_query_norm', d_query_norm)
+                self.updateCol(stint['data'], 'weather__t_query_norm', t_query_norm)
+                
                 # Interpolate the data for each quantity of interest
                 self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airTemp.to_numpy(), d_query_norm, t_query_norm, 'weather__airTemp')
                 self.getWeather_interpolate(stint['data'], d_norm, t_norm, self.weatherData.airPressure.to_numpy(), d_query_norm, t_query_norm, 'weather__airPressure')
@@ -477,16 +486,38 @@ class Simulation:
                 self.updateCol(stint['data'], 'weather__windDirection', windDirectionClean )
                 self.updateCol(stint['data'], 'weather__windHeading', windHeading )
                 
-            if self.settings['weather']['fromMongo'] or self.settings['weather']['fromCsv']:
-                ### CALCULATE OTHER PARAMETERS ###
-                # Calculate air density
-    #            ρ = 1 / v
-    #                = (p / Ra T) (1 + x) / (1 + x Rw / Ra)
+                # Dew point
+                # https://www.omnicalculator.com/physics/dew-point
                 humidity = stint['data']['weather__humidity'].to_numpy()
-                rho_dryAir = stint['data']['weather__airPressure'].to_numpy() /(self.Ra * (self.C2K + stint['data']['weather__airTemp'].to_numpy()))
-                rho = rho_dryAir * (1+humidity) / (1 + humidity * self.Rw/self.Ra)
+                airTemp = stint['data']['weather__airTemp'].to_numpy()
+                
+                a = 17.62
+                b = 243.12
+                alpha = np.log(humidity) + a*airTemp / (b + airTemp)
+                
+                dewPoint = (b * alpha) / (a - alpha)
+                self.updateCol(stint['data'], 'weather__dewPoint', dewPoint)
+                
+            if self.settings['weather']['fromMongo'] | self.settings['weather']['fromCsv']:
+                
+                # Calculate air density
+                # https://www.omnicalculator.com/physics/air-density
+                
+                humidity = stint['data']['weather__humidity'].to_numpy()
+                dewPoint = stint['data']['weather__dewPoint'].to_numpy()
+                airTemp = stint['data']['weather__airTemp'].to_numpy()
+                
+                pressureVapourSaturation = 6.1078 * 10**(7.5*dewPoint /(dewPoint + 237.3))
+                pressureVapourPartial = pressureVapourSaturation * humidity
+                pressureDryPartial = stint['data']['weather__airPressure'].to_numpy()
+                                          
+                rhoVapour = pressureVapourPartial / (self.Rw * (airTemp + self.C2K))
+                rhoDry = pressureDryPartial / (self.Ra * (airTemp + self.C2K))
+                rho = rhoVapour + rhoDry
                 
                 self.updateCol(stint['data'], 'weather__airDensity', rho)
+                self.updateCol(stint['data'], 'weather__airDensity_dry', rhoDry)
+                self.updateCol(stint['data'], 'weather__airDensity_wet', rhoVapour)
             
             
         
