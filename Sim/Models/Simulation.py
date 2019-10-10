@@ -582,7 +582,7 @@ class Simulation:
         
         ### TOTAL ###
         self.updateCol(stint['data'], 'mech__totalResistiveForce', stint['data'].mech__tyreRollingResistanceForce + stint['data'].mech__chassisRollingResistanceForce + stint['data'].mech__gravityResistanceForce)
-        self.updateCol(stint['data'], 'mech__totalResistivePower', stint['data'].mech__tyreRollingResistanceForce*stint['data'].speed*self.kph2ms)
+        self.updateCol(stint['data'], 'mech__totalResistivePower', stint['data'].mech__totalResistiveForce*stint['data'].speed*self.kph2ms)
         self.updateCol(stint['data'], 'mech__d_totalResistiveEnergy', 0)
         self.updateCol(stint['data'], 'mech__totalResistiveEnergy', 0)
         

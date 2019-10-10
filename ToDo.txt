@@ -28,7 +28,8 @@ Weather from Mongo
 
 Solar power end of day
 Overnight charging
-Check air density calculation
+
+re-correlate power
 
 
 
