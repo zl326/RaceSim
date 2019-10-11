@@ -8,7 +8,7 @@ simulation:
   minStepSizeSpeedAdd: 0.01
   minStepSizeSpeedSubtract: 0.005
 initialConditions:
-  time: 2019-10-12T08:30:00+00:00
+  time: 2019-10-13T08:30:00+00:00
   distance: 0
 car:
   mass: 860
@@ -48,9 +48,7 @@ time:
   timezone:
     name: Australia/Darwin
   days:
-    - start: 2019-10-12T08:30:00+00:00
-      end: 2019-10-12T17:00:00+00:00
-    - start: 2019-10-13T08:00:00+00:00
+    - start: 2019-10-13T08:30:00+00:00
       end: 2019-10-13T17:00:00+00:00
     - start: 2019-10-14T08:00:00+00:00
       end: 2019-10-14T17:00:00+00:00
@@ -60,6 +58,8 @@ time:
       end: 2019-10-16T17:00:00+00:00
     - start: 2019-10-17T08:00:00+00:00
       end: 2019-10-17T17:00:00+00:00
+    - start: 2019-10-18T08:00:00+00:00
+      end: 2019-10-18T17:00:00+00:00
   driverChange:
     drivingPeriodMax: 120 # minutes
     driverChangeDuration: 5 # minutes
@@ -71,17 +71,17 @@ route:
     - startLocation: Darwin
       endLocation: Tennant Creek
       startDayDefault: 1
-      arrivalTime: 2019-10-13T14:00:00+00:00
+      arrivalTime: 2019-10-14T14:00:00+00:00
       controlStops:
         - Katherine
-        - Dunmarra
+        - Daly Waters
       SOCInitial: 100.8E+6
       # driverChanges:
       #   - 150
     - startLocation: Tennant Creek
       endLocation: Coober Pedy
       startDayDefault: 3
-      arrivalTime: 2019-10-15T16:30:00+00:00
+      arrivalTime: 2019-10-16T16:30:00+00:00
       controlStops:
         - Barrow Creek
         - Alice Springs
@@ -90,7 +90,7 @@ route:
     - startLocation: Coober Pedy
       endLocation: Adelaide
       startDayDefault: 5   
-      arrivalTime: 2019-10-17T11:30:00+00:00
+      arrivalTime: 2019-10-18T11:30:00+00:00
       controlStops:
         - Glendambo
         - Port Augusta
@@ -135,56 +135,26 @@ route:
   locations:
     - name: Darwin
       distance: 0
-    - name: Adelaide River
-      distance: 113.3
-    - name: Pine Creek
-      distance: 227.6
     - name: Katherine
-      distance: 317.8
-    - name: Mataranka
-      distance: 422.1
-    - name: Larrimah
-      distance: 497.3
+      distance: 322.8
     - name: Daly Waters
-      distance: 584.5
-    - name: Dunmarra
-      distance: 634.7
-    - name: Newcastle Waters
-      distance: 711.9
-    - name: Elliot
-      distance: 736.9
-    - name: Renner Springs
-      distance: 828.2
+      distance: 589.5
     - name: Tennant Creek
-      distance: 987.6
-    - name: Wauchope
-      distance: 1103.9
+      distance: 989.5
     - name: Barrow Creek
-      distance: 1213.2
-    - name: Ti Tree
-      distance: 1302.4
-    - name: Aileron
-      distance: 1388.7
+      distance: 1210.1
     - name: Alice Springs
-      distance: 1498.0
-    - name: Erldunda
-      distance: 1695.5
+      distance: 1496.8
     - name: Kulgera
-      distance: 1771.7
-    - name: Marla
-      distance: 1950.2
-    - name: Cadney
-      distance: 2030.4
+      distance: 1769.5
     - name: Coober Pedy
-      distance: 2183.8
+      distance: 2183.5
     - name: Glendambo
-      distance: 2436.4
-    - name: Pimba
-      distance: 2549.7
+      distance: 2438.2
     - name: Port Augusta
-      distance: 2726.2
+      distance: 2725.9
     - name: Adelaide
-      distance: 3029.7
+      distance: 3029.6
 compass:
   cardinal2deg:
     N:   0

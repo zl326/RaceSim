@@ -6,16 +6,16 @@ import time
 
 t_start = time.time()
 
-simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20191010_Baseline.yml'
+simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20191011_Bsl_NoWeather_Tgt_-2.yml'
+
 
 sim = Simulation(simulationSettingsPath)
-
 iterations = []
 
 for iStint in range(0,sim.NStints):
+    bChangesMade = True
     stint = sim.stints[iStint]
     
-    bChangesMade = True
     iteration = 0
     
     if stint['endDistance'] > stint['startDistance'] :

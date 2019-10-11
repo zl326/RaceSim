@@ -376,6 +376,11 @@ class Simulation:
                 for iControlStop in range(0,stint['NControlStops']):
                     if (stint['data'].distance[i-1] <= self.locations[stint['controlStops'][iControlStop]]['distance']) & (stint['data'].distance[i] > self.locations[stint['controlStops'][iControlStop]]['distance']):
                         d_time += datetime.timedelta(minutes=self.settings['time']['controlStops']['duration'])
+                        
+                # Account for driver changes
+                for iDriverChange in range(0,len(stint['driverChanges'])):
+                    if (stint['data'].distance[i-1] <= stint['driverChanges'][iDriverChange]) & (stint['data'].distance[i] > stint['driverChanges'][iDriverChange]):
+                        d_time += datetime.timedelta(minutes=self.settings['time']['driverChange']['duration'])
                 
                 # Account for end of day
                 if stint['data'].day[i] < len(self.settings['time']['days']):
