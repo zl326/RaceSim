@@ -6,7 +6,7 @@ import time
 
 t_start = time.time()
 
-simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20191011_Bsl_NoWeather_Tgt_-2.yml'
+simulationSettingsPath = r'C:\Users\tom_m\Tommy Li\Github\RaceSim\Cases\20191014_Bsl_Mongo_Tgt_+3.yml'
 
 
 sim = Simulation(simulationSettingsPath)

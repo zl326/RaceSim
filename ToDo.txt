@@ -29,10 +29,6 @@ Overnight charging
 
 re-correlate power
 
-Finish comparisons workbooks
-17:00 during 30 mins of control stop???
-
-
 ### Correlation ###
 
 Drivetrain losses

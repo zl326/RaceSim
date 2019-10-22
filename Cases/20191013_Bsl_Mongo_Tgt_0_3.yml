@@ -1,0 +1,185 @@
+meta:
+  name: 20191013_Bsl_Mongo_Tgt_0_3
+simulation:
+  arrivalTimeTolerance: 5 # seconds
+  powerSensitivityTolerance: 1 # Power per kph
+  iterLimit: 1000
+  convergenceAggressiveness: 1
+  minStepSizeSpeedAdd: 0.01
+  minStepSizeSpeedSubtract: 0.005
+initialConditions:
+  time: 2019-10-13T15:30:00+00:00
+  distance: 322
+car:
+  mass: 860
+  # wheelbase: 2.825
+  NMotors: 2
+  # CoG_x: 2.0 # longitudinal CoG location behind front wheel centreline
+  # CoG_z: 0.7 # vertical CoG location above ground
+aero:
+  CdA: 0.28
+tyres:
+  Crr: 0.006
+  rollingRadius: 0.269
+  loadedRadius: 0.269
+solar:
+  irradianceNominal: 1000 # W/m2
+  NCells: 303
+  areaPerCell: 0.0153
+  ratioProjectedFlat: 0.972367817
+  efficiencyCell: 0.251
+  efficiencyEncapsulation: 0.94
+  projectedAreaXFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Solar\projectedArea_rotateX.csv
+  projectedAreaYFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Solar\projectedArea_rotateY.csv
+battery:
+  capacity: 100.8E+6 # Joules
+  cellDischargeCurveFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Electrical\cellDischargeCurve.csv
+  NCellsParallel: 48
+  NCellsSeries: 32
+  resistanceInternalCell: 0.022 # Ohms
+powertrain:
+  waveSculptorEfficiencyFilePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Electrical\WavesculptorEfficiency.csv
+weather:
+  fromMongo: true
+  fromCsv: false
+  filePath: C:\Users\tom_m\Tommy Li\Github\RaceSim\Weather\weather.csv
+  iterationsPerEvaluation: 25
+time:
+  timezone:
+    name: Australia/Darwin
+  days:
+    - start: 2019-10-13T08:30:00+00:00
+      end: 2019-10-13T17:00:00+00:00
+    - start: 2019-10-14T08:00:00+00:00
+      end: 2019-10-14T17:00:00+00:00
+    - start: 2019-10-15T08:00:00+00:00
+      end: 2019-10-15T17:00:00+00:00
+    - start: 2019-10-16T08:00:00+00:00
+      end: 2019-10-16T17:00:00+00:00
+    - start: 2019-10-17T08:00:00+00:00
+      end: 2019-10-17T17:00:00+00:00
+    - start: 2019-10-18T08:00:00+00:00
+      end: 2019-10-18T17:00:00+00:00
+  driverChange:
+    # periodMax: 120 # minutes
+    duration: 10 # minutes
+  controlStops:
+    duration: 40 # minutes
+route:
+  routeFile: C:\Users\tom_m\Tommy Li\Github\RaceSim\Sim\Route\routeInterpolated.csv
+  stints:
+    - startLocation: Darwin
+      endLocation: Tennant Creek
+      startDayDefault: 1
+      arrivalTime: 2019-10-14T17:00:00+00:00
+      controlStops:
+        - Katherine
+        - Daly Waters
+      SOCInitial: 100.8E+6
+      driverChanges:
+        - 161.4
+        - 456.15
+        - 789.5
+    - startLocation: Tennant Creek
+      endLocation: Coober Pedy
+      startDayDefault: 3
+      arrivalTime: 2019-10-16T16:30:00+00:00
+      controlStops:
+        - Barrow Creek
+        - Alice Springs
+        - Kulgera
+      SOCInitial: 100.8E+6
+      driverChanges:
+        - 1099.8
+        - 1353.5
+        - 1976.5
+    - startLocation: Coober Pedy
+      endLocation: Adelaide
+      startDayDefault: 5   
+      arrivalTime: 2019-10-18T11:30:00+00:00
+      controlStops:
+        - Glendambo
+        - Port Augusta
+      SOCInitial: 100.8E+6
+      driverChanges:
+        - 2310.9
+        - 2582.1
+        - 2877.8
+  speedConstraints:
+    - startDistance: 0
+      speedMin: 0
+      speedMax: 999
+    # - startDistance: 0
+    #   speedMin: 30
+    #   speedMax: 30
+    # - startDistance: 10
+    #   speedMin: 40
+    #   speedMax: 40
+    # - startDistance: 20
+    #   speedMin: 50
+    #   speedMax: 50
+    # - startDistance: 30
+    #   speedMin: 60
+    #   speedMax: 60
+    # - startDistance: 40
+    #   speedMin: 70
+    #   speedMax: 70
+    # - startDistance: 50
+    #   speedMin: 80
+    #   speedMax: 80
+    # - startDistance: 60
+    #   speedMin: 90
+    #   speedMax: 90
+    # - startDistance: 70
+    #   speedMin: 0
+    #   speedMax: 999
+    # - startDistance: 20
+    #   speedMin: 55
+    #   speedMax: 55
+    # - startDistance: 60
+    #   speedMin: 78
+    #   speedMax: 78
+    # - startDistance: 100
+    #   speedMin: 0
+    #   speedMax: 999
+  locations:
+    - name: Darwin
+      distance: 0
+    - name: Katherine
+      distance: 322.8
+    - name: Daly Waters
+      distance: 589.5
+    - name: Tennant Creek
+      distance: 989.5
+    - name: Barrow Creek
+      distance: 1210.1
+    - name: Alice Springs
+      distance: 1496.8
+    - name: Kulgera
+      distance: 1769.5
+    - name: Coober Pedy
+      distance: 2183.5
+    - name: Glendambo
+      distance: 2438.2
+    - name: Port Augusta
+      distance: 2725.9
+    - name: Adelaide
+      distance: 3029.6
+compass:
+  cardinal2deg:
+    N:   0
+    NNE: 22.5
+    NE:  45
+    ENE: 67.5
+    E:   90
+    ESE: 112.5
+    SE:  135
+    SSE: 157.5
+    S:   180
+    SSW: 202.5
+    SW:  225
+    WSW: 247.5
+    W:   270
+    WNW: 292.5
+    NW:  315
+    NNW: 337.5

@@ -90,7 +90,7 @@ route:
         - Kulgera
       SOCInitial: 100.8E+6
       driverChanges:
-        - 434.2
+        - 1099.8
         - 1353.5
         - 1976.5
     - startLocation: Coober Pedy
